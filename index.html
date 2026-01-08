@@ -149,15 +149,20 @@
         };
 
         window.deleteItem = async (id) => {
-            if (confirm('Delete this item?') && db) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
+            if (confirm('Delete this item?') && db) {
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
+                } catch (e) { console.error("Delete failed", e); }
+            }
         };
 
         const render = () => {
             const term = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = items.filter(i => i.name.toLowerCase().includes(term) || i.brand.toLowerCase().includes(term));
+            const filtered = items.filter(i => (i.name || '').toLowerCase().includes(term) || (i.brand || '').toLowerCase().includes(term));
             
             filtered.sort((a, b) => {
                 let v1 = a[sortConfig.key], v2 = b[sortConfig.key];
+                if (typeof v1 === 'string') { v1 = v1.toLowerCase(); v2 = v2.toLowerCase(); }
                 return sortConfig.direction === 'asc' ? (v1 > v2 ? 1 : -1) : (v1 < v2 ? 1 : -1);
             });
 
@@ -165,8 +170,8 @@
                 <tr class="hover:bg-slate-50">
                     <td class="px-6 py-4 font-medium">${i.name}</td>
                     <td class="px-6 py-4 text-slate-500">${i.brand || '-'}</td>
-                    <td class="px-6 py-4 text-slate-500">${i.supplier}</td>
-                    <td class="px-6 py-4 text-right font-mono">₱${Number(i.price).toLocaleString()} <span class="text-xs text-slate-400">/${i.unit}</span></td>
+                    <td class="px-6 py-4 text-slate-500">${i.supplier || '-'}</td>
+                    <td class="px-6 py-4 text-right font-mono">₱${Number(i.price).toLocaleString()} <span class="text-xs text-slate-400">/${i.unit || 'pc'}</span></td>
                     <td class="admin-only ${isAdmin ? '' : 'hidden'} px-6 py-4 text-right no-print">
                         <button onclick="editItem('${i.id}')" class="text-blue-600 mr-2">Edit</button>
                         <button onclick="deleteItem('${i.id}')" class="text-red-600">Delete</button>
@@ -177,24 +182,39 @@
             document.getElementById('loadingState').classList.add('hidden');
         };
 
-        // Auth & Data listeners
+        // Auth & Data listeners - Added check for db existence
         if (auth && db) {
             const start = async () => {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    
+                    // Double check db is valid before calling collection()
+                    if (db) {
+                        onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), (snap) => {
+                            items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                            render();
+                        }, (err) => {
+                            console.error("Snapshot error:", err);
+                            document.getElementById('loadingState').textContent = "Connection error. Please refresh.";
+                        });
+                    }
+                } catch (e) {
+                    console.error("Initialization failed", e);
+                    document.getElementById('loadingState').textContent = "Failed to connect to database.";
                 }
-                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), (snap) => {
-                    items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    render();
-                });
             };
             start();
+        } else {
+            document.getElementById('loadingState').textContent = "Database configuration missing.";
         }
 
         document.getElementById('itemForm').onsubmit = async (e) => {
             e.preventDefault();
+            if (!db) return;
             const id = document.getElementById('itemId').value;
             const data = {
                 name: document.getElementById('itemName').value,
@@ -204,9 +224,11 @@
                 unit: document.getElementById('itemUnit').value,
                 updatedAt: serverTimestamp()
             };
-            if (id) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data);
-            else await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), data);
-            closeModal('itemModal');
+            try {
+                if (id) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data);
+                else await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), data);
+                closeModal('itemModal');
+            } catch (err) { console.error("Save failed", err); }
         };
 
         document.getElementById('searchInput').oninput = render;
