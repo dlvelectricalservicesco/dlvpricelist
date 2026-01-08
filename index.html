@@ -47,7 +47,10 @@
         <!-- Connection Warning -->
         <div id="connectionError" class="hidden mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-3">
             <i data-lucide="alert-circle" class="w-5 h-5"></i>
-            <p id="errorMsg">Database connection is not configured correctly.</p>
+            <div>
+                <p id="errorMsg" class="font-bold">Database connection is not configured correctly.</p>
+                <p class="text-xs mt-1">If deploying to Netlify, ensure you have hardcoded your Firebase credentials in the script tag.</p>
+            </div>
         </div>
 
         <div class="flex gap-4 mb-8 no-print">
@@ -127,9 +130,10 @@
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
         // --- Configuration Handling ---
-        // For Netlify deployment, you must set these environment variables or hardcode them here if safe.
-        // We use window variables provided by the container or fall back to null.
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        // INSTRUCTIONS: If deploying to Netlify, paste your actual Firebase config object here.
+        const manualFirebaseConfig = null; // e.g., { apiKey: "...", ... }
+        
+        const firebaseConfig = manualFirebaseConfig || (typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         let app, auth, db;
@@ -140,7 +144,7 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
             } else {
-                showError("Firebase configuration not found. Check your Netlify environment variables.");
+                showError("Firebase configuration not found. You must hardcode your Firebase credentials in the script tag for production use.");
             }
         } catch (e) {
             showError("Failed to initialize Firebase: " + e.message);
@@ -170,6 +174,10 @@
                 } else {
                     document.getElementById('modalTitle').textContent = "Edit Item";
                 }
+                // Auto focus first input
+                setTimeout(() => document.getElementById('itemName').focus(), 100);
+            } else if (id === 'loginModal') {
+                setTimeout(() => document.getElementById('loginPassword').focus(), 100);
             }
         };
 
@@ -256,14 +264,12 @@
         if (auth && db) {
             const start = async () => {
                 try {
-                    // 1. Authenticate first
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
                     } else {
                         await signInAnonymously(auth);
                     }
                     
-                    // 2. Setup listener
                     onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), (snap) => {
                         items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                         render();
@@ -316,6 +322,11 @@
                 saveBtn.textContent = "Save Item";
             }
         };
+
+        // Handle enter key in login modal
+        document.getElementById('loginPassword').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') submitLogin();
+        });
 
         document.getElementById('searchInput').oninput = render;
         lucide.createIcons();
