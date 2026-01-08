@@ -131,9 +131,12 @@
                 <h3 class="text-lg font-black uppercase">Admin access</h3>
                 <button onclick="closeModal('loginModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
-            <input type="password" id="loginPassword" placeholder="PASSWORD" class="w-full p-2.5 border border-slate-200 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 outline-none uppercase text-xs">
-            <div id="loginError" class="hidden text-red-500 text-[10px] mb-4 font-bold uppercase">Invalid password</div>
-            <button onclick="submitLogin()" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold uppercase text-xs hover:bg-blue-700 transition">Login</button>
+            <!-- Wrapped in form to handle Enter key automatically -->
+            <form id="loginForm" onsubmit="event.preventDefault(); submitLogin();">
+                <input type="password" id="loginPassword" placeholder="PASSWORD" class="w-full p-2.5 border border-slate-200 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 outline-none uppercase text-xs">
+                <div id="loginError" class="hidden text-red-500 text-[10px] mb-4 font-bold uppercase">Invalid password</div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold uppercase text-xs hover:bg-blue-700 transition">Login</button>
+            </form>
         </div>
     </div>
 
@@ -171,7 +174,7 @@
                     </div>
                 </div>
                 <div id="saveError" class="hidden p-3 bg-red-50 text-red-600 text-[10px] font-bold uppercase rounded-lg"></div>
-                <button type="submit" id="saveBtn" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-black uppercase text-xs">Save Changes</button>
+                <button type="submit" id="saveBtn" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-black uppercase text-xs hover:bg-blue-700 transition">Save Changes</button>
             </form>
         </div>
     </div>
@@ -203,10 +206,18 @@
 
         window.openModal = (id, mode = 'add') => {
             document.getElementById(id).classList.add('active');
-            if (id === 'itemModal' && mode === 'add') {
-                document.getElementById('itemForm').reset();
-                document.getElementById('itemId').value = "";
-                document.getElementById('modalTitle').textContent = "Add Material";
+            if (id === 'itemModal') {
+                document.getElementById('saveError').classList.add('hidden');
+                if (mode === 'add') {
+                    document.getElementById('itemForm').reset();
+                    document.getElementById('itemId').value = "";
+                    document.getElementById('modalTitle').textContent = "Add Material";
+                }
+            } else if (id === 'loginModal') {
+                document.getElementById('loginPassword').value = "";
+                document.getElementById('loginError').classList.add('hidden');
+                // Focus the password field
+                setTimeout(() => document.getElementById('loginPassword').focus(), 100);
             }
         };
 
@@ -341,28 +352,51 @@
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), (snap) => {
                     items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                     render();
+                }, (err) => {
+                    console.error("Firestore error:", err);
+                    document.getElementById('connectionError').classList.remove('hidden');
+                    document.getElementById('errorMsg').textContent = "Database sync failed.";
                 });
             } catch (e) { console.error(e); }
         };
         start();
 
-        document.getElementById('itemForm').onsubmit = async (e) => {
+        // Form submission handler for material items
+        document.getElementById('itemForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const saveBtn = document.getElementById('saveBtn');
+            const errorEl = document.getElementById('saveError');
+            
+            saveBtn.disabled = true;
+            saveBtn.textContent = "SAVING...";
+            errorEl.classList.add('hidden');
+
             const id = document.getElementById('itemId').value;
             const data = {
                 name: document.getElementById('itemName').value,
                 brand: document.getElementById('itemBrand').value,
                 supplier: document.getElementById('itemSupplier').value,
-                price: parseFloat(document.getElementById('itemPrice').value),
+                price: parseFloat(document.getElementById('itemPrice').value) || 0,
                 unit: document.getElementById('itemUnit').value,
                 updatedAt: serverTimestamp()
             };
+
             try {
-                id ? await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data) 
-                   : await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), data);
+                if (id) {
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data);
+                } else {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), data);
+                }
                 closeModal('itemModal');
-            } catch (err) { alert(err.message); }
-        };
+            } catch (err) {
+                console.error("Save error:", err);
+                errorEl.textContent = "Error saving: " + err.message;
+                errorEl.classList.remove('hidden');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = "SAVE CHANGES";
+            }
+        });
 
         document.getElementById('searchInput').oninput = render;
         lucide.createIcons();
