@@ -3,525 +3,198 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DLV Materials Pricelist Tracker</title>
-    
-    <!-- Tailwind CSS -->
+    <title>DLV Materials Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
     <style>
         body { font-family: 'Inter', sans-serif; }
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        .modal {
-            transition: opacity 0.3s ease-in-out;
-            opacity: 0;
-            pointer-events: none;
-        }
-        .modal.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        .modal-content {
-            transform: scale(0.95);
-            transition: transform 0.3s ease-in-out;
-        }
-        .modal.active .modal-content {
-            transform: scale(1);
-        }
-
-        /* Print Styles */
+        .modal { transition: opacity 0.3s ease-in-out; opacity: 0; pointer-events: none; }
+        .modal.active { opacity: 1; pointer-events: auto; }
+        .modal-content { transform: scale(0.95); transition: transform 0.3s ease-in-out; }
+        .modal.active .modal-content { transform: scale(1); }
         @media print {
-            body { background: white; color: black; }
-            header, .no-print, #adminControls, #loginBtn, .admin-only, #searchBarContainer, #printBtn, .modal { 
-                display: none !important; 
-            }
-            main { padding: 0; margin: 0; max-width: 100%; }
-            #tableContainer { box-shadow: none; border: none; overflow: visible; }
-            table { width: 100%; border-collapse: collapse; font-size: 12px; }
-            th, td { border: 1px solid #ddd; padding: 4px 8px; }
-            th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; }
-            
-            /* Show Print Header */
-            #printHeader { display: block !important; margin-bottom: 20px; text-align: center; }
-            #printDate { display: block !important; }
+            .no-print { display: none !important; }
+            #tableContainer { box-shadow: none; border: none; }
         }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen">
 
-    <!-- Print Header (Hidden normally) -->
-    <div id="printHeader" class="hidden p-4 border-b border-black mb-4">
-        <h1 class="text-2xl font-bold">DLV Materials Pricelist</h1>
-        <p id="printDate" class="text-sm text-gray-600 mt-1"></p>
-    </div>
-
-    <!-- Header -->
     <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm no-print">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <!-- Logo -->
-                <div class="flex items-center gap-2">
-                    <div class="bg-blue-600 p-2 rounded-lg text-white">
-                        <i data-lucide="package" class="w-6 h-6"></i>
-                    </div>
-                    <div>
-                        <h1 class="text-xl font-bold text-slate-900 tracking-tight">DLV Materials</h1>
-                        <p class="text-xs text-slate-500 font-medium hidden sm:block">Pricelist Tracker</p>
-                    </div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="bg-blue-600 p-2 rounded-lg text-white">
+                    <i data-lucide="package" class="w-6 h-6"></i>
                 </div>
-                
-                <!-- Admin Controls -->
-                <div class="flex items-center gap-3">
-                    <button onclick="window.print()" class="flex items-center gap-2 text-slate-600 hover:text-blue-600 px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-slate-50 border border-slate-200 hover:bg-white hover:border-blue-300">
-                        <i data-lucide="printer" class="w-5 h-5"></i>
-                        <span class="hidden sm:inline">Print List</span>
-                    </button>
-
-                    <div id="adminControls" class="hidden flex items-center gap-3">
-                        <span class="text-sm font-medium text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 hidden sm:block">
-                            Admin Mode
-                        </span>
-                        <button onclick="openModal('itemModal', 'add')" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm hover:shadow-md">
-                            <i data-lucide="plus" class="w-4 h-4"></i>
-                            <span class="hidden sm:inline">Add Item</span>
-                        </button>
-                        <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" title="Logout">
-                            <i data-lucide="log-out" class="w-5 h-5"></i>
-                        </button>
-                    </div>
-                    
-                    <button id="loginBtn" onclick="openModal('loginModal')" class="flex items-center gap-2 text-slate-600 hover:text-blue-600 px-3 py-2 rounded-lg text-sm font-medium transition-colors">
-                        <i data-lucide="log-in" class="w-5 h-5"></i>
-                        <span class="hidden sm:inline">Admin Login</span>
-                    </button>
+                <h1 class="text-xl font-bold">DLV Materials</h1>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <button onclick="window.print()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg">
+                    <i data-lucide="printer" class="w-5 h-5"></i>
+                </button>
+                <div id="adminControls" class="hidden flex items-center gap-2">
+                    <button onclick="openModal('itemModal', 'add')" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">Add Item</button>
+                    <button onclick="handleLogout()" class="p-2 text-slate-400"><i data-lucide="log-out" class="w-5 h-5"></i></button>
                 </div>
+                <button id="loginBtn" onclick="openModal('loginModal')" class="text-sm font-medium text-slate-600">Admin Login</button>
             </div>
         </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        <!-- Search & Filter Bar -->
-        <div id="searchBarContainer" class="flex flex-col md:flex-row gap-4 mb-8 bg-white p-4 rounded-xl shadow-sm border border-slate-100 no-print">
-            <div class="flex-1 relative">
-                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
-                <input 
-                    type="text" 
-                    id="searchInput"
-                    placeholder="Search by name, brand, or supplier..."
-                    class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                >
-            </div>
-            
-            <div class="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-                <select id="supplierFilter" class="px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-sm focus:outline-none focus:border-blue-500 cursor-pointer min-w-[140px]">
-                    <option value="All">All Suppliers</option>
-                    <!-- Suppliers injected via JS -->
-                </select>
-            </div>
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <div class="flex gap-4 mb-8 no-print">
+            <input type="text" id="searchInput" placeholder="Search materials..." class="flex-1 p-2 border rounded-lg">
+            <select id="supplierFilter" class="p-2 border rounded-lg bg-white"><option value="All">All Suppliers</option></select>
         </div>
 
-        <!-- Loading Spinner -->
-        <div id="loadingState" class="flex flex-col items-center justify-center py-20 text-slate-400 no-print">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-            <p>Loading pricelist...</p>
-        </div>
+        <div id="loadingState" class="text-center py-20"><div class="animate-spin h-8 w-8 border-b-2 border-blue-600 mx-auto"></div></div>
 
-        <!-- Empty State -->
-        <div id="emptyState" class="hidden text-center py-20 bg-white rounded-xl border border-dashed border-slate-300 no-print">
-            <div class="mx-auto w-12 h-12 text-slate-300 mb-3 flex justify-center items-center">
-                <i data-lucide="package" class="w-12 h-12"></i>
-            </div>
-            <h3 class="text-lg font-medium text-slate-900">No materials found</h3>
-            <p class="text-slate-500">Try adjusting your search or filters</p>
-        </div>
-
-        <!-- Table -->
-        <div id="tableContainer" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-50 border-b border-slate-200">
-                            <th onclick="handleSort('name')" class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none">
-                                <div class="flex items-center gap-2">
-                                    Item Name
-                                    <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-slate-300 sort-icon" id="sort-name"></i>
-                                </div>
-                            </th>
-                            <th onclick="handleSort('brand')" class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none">
-                                <div class="flex items-center gap-2">
-                                    Brand
-                                    <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-slate-300 sort-icon" id="sort-brand"></i>
-                                </div>
-                            </th>
-                            <th onclick="handleSort('supplier')" class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none">
-                                <div class="flex items-center gap-2">
-                                    Supplier
-                                    <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-slate-300 sort-icon" id="sort-supplier"></i>
-                                </div>
-                            </th>
-                            <th onclick="handleSort('price')" class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors text-right select-none">
-                                <div class="flex items-center justify-end gap-2">
-                                    Price
-                                    <i data-lucide="arrow-up-down" class="w-3.5 h-3.5 text-slate-300 sort-icon" id="sort-price"></i>
-                                </div>
-                            </th>
-                            <th class="admin-only hidden px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right no-print">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="materialsTableBody" class="divide-y divide-slate-100">
-                        <!-- Rows injected via JS -->
-                    </tbody>
-                </table>
-            </div>
+        <div id="tableContainer" class="hidden bg-white rounded-xl shadow-sm border overflow-hidden">
+            <table class="w-full text-left">
+                <thead class="bg-slate-50 border-b">
+                    <tr>
+                        <th class="px-6 py-4 cursor-pointer" onclick="handleSort('name')">Item Name</th>
+                        <th class="px-6 py-4 cursor-pointer" onclick="handleSort('brand')">Brand</th>
+                        <th class="px-6 py-4 cursor-pointer" onclick="handleSort('supplier')">Supplier</th>
+                        <th class="px-6 py-4 text-right cursor-pointer" onclick="handleSort('price')">Price</th>
+                        <th class="admin-only hidden px-6 py-4 text-right no-print">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="materialsTableBody" class="divide-y"></tbody>
+            </table>
         </div>
     </main>
 
-    <!-- Login Modal -->
-    <div id="loginModal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
-        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div class="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50">
-                <h3 class="text-lg font-semibold text-gray-800">Admin Access</h3>
-                <button onclick="closeModal('loginModal')" class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-            <div class="p-6">
-                <form id="loginForm" class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                        <input type="password" id="loginPassword" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" placeholder="Enter admin password">
-                        <p class="text-xs text-slate-400 mt-1">Hint: Use 'admin' for demo</p>
-                    </div>
-                    <p id="loginError" class="hidden text-sm text-red-600 bg-red-50 p-2 rounded border border-red-100"></p>
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors shadow-sm">
-                        Login
-                    </button>
-                </form>
-            </div>
+    <!-- Modals -->
+    <div id="loginModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div class="modal-content bg-white p-6 rounded-xl w-full max-w-sm">
+            <h3 class="text-lg font-bold mb-4">Admin Login</h3>
+            <input type="password" id="loginPassword" placeholder="Password" class="w-full p-2 border rounded mb-4">
+            <button onclick="submitLogin()" class="w-full bg-blue-600 text-white py-2 rounded">Login</button>
+            <button onclick="closeModal('loginModal')" class="w-full mt-2 text-slate-500 text-sm">Cancel</button>
         </div>
     </div>
 
-    <!-- Add/Edit Item Modal -->
-    <div id="itemModal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
-        <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div class="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50">
-                <h3 id="modalTitle" class="text-lg font-semibold text-gray-800">Add New Material</h3>
-                <button onclick="closeModal('itemModal')" class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-            <div class="p-6">
-                <form id="itemForm" class="space-y-4">
-                    <input type="hidden" id="itemId">
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Item Name</label>
-                        <input type="text" id="itemName" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="e.g. Cement 40kg">
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Brand</label>
-                            <input type="text" id="itemBrand" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="e.g. Holcim">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Supplier</label>
-                            <input type="text" id="itemSupplier" list="supplierList" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="e.g. Ace Hardware">
-                            <datalist id="supplierList">
-                                <!-- Dynamic suppliers -->
-                            </datalist>
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Price (₱)</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">₱</span>
-                                <input type="number" step="0.01" id="itemPrice" required class="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none font-mono" placeholder="0.00">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Unit</label>
-                            <input type="text" id="itemUnit" placeholder="e.g. pcs, kg" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Description (Optional)</label>
-                        <textarea id="itemDescription" rows="2" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none" placeholder="Additional details..."></textarea>
-                    </div>
-
-                    <div class="pt-2">
-                        <button type="submit" id="saveBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors flex justify-center items-center gap-2">
-                            <i data-lucide="save" class="w-4 h-4"></i>
-                            <span id="saveBtnText">Save Item</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
+    <div id="itemModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div class="modal-content bg-white p-6 rounded-xl w-full max-w-md">
+            <h3 id="modalTitle" class="text-lg font-bold mb-4">Item Details</h3>
+            <form id="itemForm" class="space-y-3">
+                <input type="hidden" id="itemId">
+                <input type="text" id="itemName" placeholder="Item Name" class="w-full p-2 border rounded" required>
+                <input type="text" id="itemBrand" placeholder="Brand" class="w-full p-2 border rounded">
+                <input type="text" id="itemSupplier" placeholder="Supplier" class="w-full p-2 border rounded">
+                <div class="flex gap-2">
+                    <input type="number" step="0.01" id="itemPrice" placeholder="Price" class="flex-1 p-2 border rounded" required>
+                    <input type="text" id="itemUnit" placeholder="Unit" class="w-32 p-2 border rounded">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded">Save</button>
+                <button type="button" onclick="closeModal('itemModal')" class="w-full text-slate-500">Cancel</button>
+            </form>
         </div>
     </div>
 
-    <!-- JavaScript Logic -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
-        // --- Configuration ---
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        // Firebase Setup with safety checks
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const COLLECTION_NAME = "materials";
-        const ADMIN_PASSWORD = "admin";
+        const app = firebaseConfig ? initializeApp(firebaseConfig) : null;
+        const auth = app ? getAuth(app) : null;
+        const db = app ? getFirestore(app) : null;
 
-        // --- State ---
         let items = [];
-        let filteredItems = [];
         let isAdmin = false;
         let sortConfig = { key: 'name', direction: 'asc' };
-        let currentUser = null;
 
-        // --- Elements ---
-        const tableBody = document.getElementById('materialsTableBody');
-        const searchInput = document.getElementById('searchInput');
-        const supplierFilter = document.getElementById('supplierFilter');
-        const supplierList = document.getElementById('supplierList');
-        const loginForm = document.getElementById('loginForm');
-        const itemForm = document.getElementById('itemForm');
-        
-        // --- Initialization ---
-        // Set date for print header
-        document.getElementById('printDate').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        // Global functions
+        window.openModal = (id, mode = 'add') => {
+            document.getElementById(id).classList.add('active');
+            if (id === 'itemModal' && mode === 'add') document.getElementById('itemForm').reset();
+        };
+        window.closeModal = (id) => document.getElementById(id).classList.remove('active');
 
-        async function initAuth() {
-            try {
+        window.submitLogin = () => {
+            if (document.getElementById('loginPassword').value === 'admin') {
+                isAdmin = true;
+                document.getElementById('adminControls').classList.remove('hidden');
+                document.getElementById('loginBtn').classList.add('hidden');
+                document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+                closeModal('loginModal');
+                render();
+            }
+        };
+
+        window.handleLogout = () => { location.reload(); };
+
+        window.handleSort = (key) => {
+            sortConfig.direction = (sortConfig.key === key && sortConfig.direction === 'asc') ? 'desc' : 'asc';
+            sortConfig.key = key;
+            render();
+        };
+
+        window.editItem = (id) => {
+            const item = items.find(i => i.id === id);
+            document.getElementById('itemId').value = item.id;
+            document.getElementById('itemName').value = item.name;
+            document.getElementById('itemBrand').value = item.brand;
+            document.getElementById('itemSupplier').value = item.supplier;
+            document.getElementById('itemPrice').value = item.price;
+            document.getElementById('itemUnit').value = item.unit;
+            openModal('itemModal', 'edit');
+        };
+
+        window.deleteItem = async (id) => {
+            if (confirm('Delete this item?') && db) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
+        };
+
+        const render = () => {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = items.filter(i => i.name.toLowerCase().includes(term) || i.brand.toLowerCase().includes(term));
+            
+            filtered.sort((a, b) => {
+                let v1 = a[sortConfig.key], v2 = b[sortConfig.key];
+                return sortConfig.direction === 'asc' ? (v1 > v2 ? 1 : -1) : (v1 < v2 ? 1 : -1);
+            });
+
+            document.getElementById('materialsTableBody').innerHTML = filtered.map(i => `
+                <tr class="hover:bg-slate-50">
+                    <td class="px-6 py-4 font-medium">${i.name}</td>
+                    <td class="px-6 py-4 text-slate-500">${i.brand || '-'}</td>
+                    <td class="px-6 py-4 text-slate-500">${i.supplier}</td>
+                    <td class="px-6 py-4 text-right font-mono">₱${Number(i.price).toLocaleString()} <span class="text-xs text-slate-400">/${i.unit}</span></td>
+                    <td class="admin-only ${isAdmin ? '' : 'hidden'} px-6 py-4 text-right no-print">
+                        <button onclick="editItem('${i.id}')" class="text-blue-600 mr-2">Edit</button>
+                        <button onclick="deleteItem('${i.id}')" class="text-red-600">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('tableContainer').classList.remove('hidden');
+            document.getElementById('loadingState').classList.add('hidden');
+        };
+
+        // Auth & Data listeners
+        if (auth && db) {
+            const start = async () => {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
-            } catch (error) {
-                console.error("Auth error:", error);
-            }
-        }
-        
-        initAuth();
-
-        onAuthStateChanged(auth, (user) => {
-            currentUser = user;
-            if (user) {
-                startDataListener();
-            }
-        });
-
-        function startDataListener() {
-            const q = collection(db, 'artifacts', appId, 'public', 'data', COLLECTION_NAME);
-            
-            onSnapshot(q, (snapshot) => {
-                items = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    // Handle migration or missing fields gracefully
-                    return { 
-                        id: doc.id, 
-                        ...data,
-                        supplier: data.supplier || data.category || 'General', // Fallback to old category if supplier missing
-                        brand: data.brand || '-'
-                    };
+                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), (snap) => {
+                    items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    render();
                 });
-                updateSupplierOptions();
-                processData();
-                document.getElementById('loadingState').classList.add('hidden');
-            }, (error) => {
-                console.error("Error fetching data:", error);
-                document.getElementById('loadingState').textContent = "Error loading data.";
-            });
+            };
+            start();
         }
 
-        // --- Data Processing & Rendering ---
-        function updateSupplierOptions() {
-            const currentVal = supplierFilter.value;
-            const uniqueSuppliers = new Set(items.map(i => i.supplier).filter(Boolean));
-            const sortedSuppliers = Array.from(uniqueSuppliers).sort();
-            
-            // Update Filter Dropdown
-            let filterHtml = '<option value="All">All Suppliers</option>';
-            sortedSuppliers.forEach(sup => {
-                filterHtml += `<option value="${sup}">${sup}</option>`;
-            });
-            supplierFilter.innerHTML = filterHtml;
-            supplierFilter.value = currentVal;
-
-            // Update Datalist for Form
-            let listHtml = '';
-            sortedSuppliers.forEach(sup => {
-                listHtml += `<option value="${sup}">`;
-            });
-            supplierList.innerHTML = listHtml;
-        }
-
-        function processData() {
-            const term = searchInput.value.toLowerCase();
-            const selectedSupplier = supplierFilter.value;
-
-            // Filter
-            filteredItems = items.filter(item => {
-                const nameMatch = (item.name || '').toLowerCase().includes(term);
-                const brandMatch = (item.brand || '').toLowerCase().includes(term);
-                const supplierMatch = (item.supplier || '').toLowerCase().includes(term);
-                
-                const matchesSearch = nameMatch || brandMatch || supplierMatch;
-                const matchesSupplier = selectedSupplier === 'All' || item.supplier === selectedSupplier;
-                
-                return matchesSearch && matchesSupplier;
-            });
-
-            // Sort
-            filteredItems.sort((a, b) => {
-                const valA = (a[sortConfig.key] || '').toString().toLowerCase();
-                const valB = (b[sortConfig.key] || '').toString().toLowerCase();
-                
-                // Handle numeric price sorting specifically
-                if (sortConfig.key === 'price') {
-                    return sortConfig.direction === 'asc' ? a.price - b.price : b.price - a.price;
-                }
-                
-                if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-
-            renderTable();
-        }
-
-        function renderTable() {
-            const container = document.getElementById('tableContainer');
-            const emptyState = document.getElementById('emptyState');
-
-            if (filteredItems.length === 0) {
-                container.classList.add('hidden');
-                emptyState.classList.remove('hidden');
-                return;
-            }
-
-            container.classList.remove('hidden');
-            emptyState.classList.add('hidden');
-
-            tableBody.innerHTML = filteredItems.map(item => `
-                <tr class="hover:bg-slate-50/50 transition-colors group">
-                    <td class="px-6 py-4">
-                        <div class="font-medium text-slate-900">${escapeHtml(item.name)}</div>
-                        ${item.description ? `<div class="text-xs text-slate-400 mt-0.5">${escapeHtml(item.description)}</div>` : ''}
-                    </td>
-                    <td class="px-6 py-4 text-slate-600">
-                        ${escapeHtml(item.brand)}
-                    </td>
-                    <td class="px-6 py-4">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">
-                            ${escapeHtml(item.supplier)}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 text-right">
-                        <div class="font-bold text-slate-900 font-mono">
-                            ₱${parseFloat(item.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </div>
-                        <div class="text-xs text-slate-400">per ${escapeHtml(item.unit)}</div>
-                    </td>
-                    <td class="admin-only ${isAdmin ? '' : 'hidden'} px-6 py-4 text-right whitespace-nowrap no-print">
-                        <button onclick="window.editItem('${item.id}')" class="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded-lg transition-colors mr-1" title="Edit">
-                            <i data-lucide="edit-2" class="w-4 h-4"></i>
-                        </button>
-                        <button onclick="window.deleteItem('${item.id}')" class="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
-
-            lucide.createIcons(); // Re-render icons in the table
-            updateSortIcons();
-        }
-
-        // --- Logic Operations ---
-        window.handleSort = (key) => {
-            if (sortConfig.key === key) {
-                sortConfig.direction = sortConfig.direction === 'asc' ? 'desc' : 'asc';
-            } else {
-                sortConfig.key = key;
-                sortConfig.direction = 'asc';
-            }
-            processData();
-        };
-
-        function updateSortIcons() {
-            // Reset all icons
-            ['name', 'brand', 'supplier', 'price'].forEach(k => {
-                const icon = document.getElementById(`sort-${k}`);
-                if (icon) icon.classList.replace('text-blue-600', 'text-slate-300');
-            });
-            
-            // Highlight active
-            const activeIcon = document.getElementById(`sort-${sortConfig.key}`);
-            if (activeIcon) activeIcon.classList.replace('text-slate-300', 'text-blue-600');
-        }
-
-        // --- Admin Actions ---
-        loginForm.addEventListener('submit', (e) => {
+        document.getElementById('itemForm').onsubmit = async (e) => {
             e.preventDefault();
-            const password = document.getElementById('loginPassword').value;
-            const errorMsg = document.getElementById('loginError');
-            
-            if (password === ADMIN_PASSWORD) {
-                setAdminMode(true);
-                document.getElementById('loginPassword').value = '';
-                errorMsg.classList.add('hidden');
-                closeModal('loginModal');
-            } else {
-                errorMsg.textContent = 'Incorrect password';
-                errorMsg.classList.remove('hidden');
-            }
-        });
-
-        window.handleLogout = () => {
-            setAdminMode(false);
-        };
-
-        function setAdminMode(status) {
-            isAdmin = status;
-            const adminControls = document.getElementById('adminControls');
-            const loginBtn = document.getElementById('loginBtn');
-            
-            if (isAdmin) {
-                adminControls.classList.remove('hidden');
-                loginBtn.classList.add('hidden');
-                document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
-            } else {
-                adminControls.classList.add('hidden');
-                loginBtn.classList.remove('hidden');
-                document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
-            }
-        }
-
-        // --- CRUD Operations ---
-        itemForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (!currentUser) return;
-
             const id = document.getElementById('itemId').value;
             const data = {
                 name: document.getElementById('itemName').value,
@@ -529,104 +202,14 @@
                 supplier: document.getElementById('itemSupplier').value,
                 price: parseFloat(document.getElementById('itemPrice').value),
                 unit: document.getElementById('itemUnit').value,
-                description: document.getElementById('itemDescription').value,
                 updatedAt: serverTimestamp()
             };
-
-            const saveBtn = document.getElementById('saveBtn');
-            const originText = saveBtn.innerHTML;
-            saveBtn.disabled = true;
-            saveBtn.innerHTML = '<span class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span> Saving...';
-
-            try {
-                if (id) {
-                    // Update
-                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', COLLECTION_NAME, id), data);
-                } else {
-                    // Add
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', COLLECTION_NAME), data);
-                }
-                closeModal('itemModal');
-            } catch (error) {
-                console.error("Save error", error);
-                alert("Failed to save. Try again.");
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = originText;
-                lucide.createIcons();
-            }
-        });
-
-        window.editItem = (id) => {
-            const item = items.find(i => i.id === id);
-            if (!item) return;
-
-            document.getElementById('itemId').value = item.id;
-            document.getElementById('itemName').value = item.name;
-            document.getElementById('itemBrand').value = item.brand || '';
-            document.getElementById('itemSupplier').value = item.supplier;
-            document.getElementById('itemPrice').value = item.price;
-            document.getElementById('itemUnit').value = item.unit;
-            document.getElementById('itemDescription').value = item.description || '';
-            
-            openModal('itemModal', 'edit');
+            if (id) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data);
+            else await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), data);
+            closeModal('itemModal');
         };
 
-        window.deleteItem = async (id) => {
-            if (!confirm('Are you sure you want to delete this item?')) return;
-            try {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', COLLECTION_NAME, id));
-            } catch (error) {
-                console.error("Delete error", error);
-            }
-        };
-
-        // --- Utils & Event Listeners ---
-        searchInput.addEventListener('input', processData);
-        supplierFilter.addEventListener('change', processData);
-
-        window.openModal = (modalId, mode = 'add') => {
-            const modal = document.getElementById(modalId);
-            modal.classList.add('active');
-            
-            if (modalId === 'itemModal') {
-                const title = document.getElementById('modalTitle');
-                const btnText = document.getElementById('saveBtnText');
-                
-                if (mode === 'add') {
-                    itemForm.reset();
-                    document.getElementById('itemId').value = '';
-                    // Set defaults
-                    document.getElementById('itemUnit').value = 'pcs';
-                    document.getElementById('itemBrand').value = '';
-                    document.getElementById('itemSupplier').value = '';
-                    
-                    title.textContent = 'Add New Material';
-                    btnText.textContent = 'Save Item';
-                } else {
-                    title.textContent = 'Edit Material';
-                    btnText.textContent = 'Update Item';
-                }
-            } else if (modalId === 'loginModal') {
-                setTimeout(() => document.getElementById('loginPassword').focus(), 100);
-            }
-        };
-
-        window.closeModal = (modalId) => {
-            document.getElementById(modalId).classList.remove('active');
-        };
-
-        function escapeHtml(text) {
-            if (!text) return '';
-            return text
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
-
-        // Initialize Icons
+        document.getElementById('searchInput').oninput = render;
         lucide.createIcons();
     </script>
 </body>
