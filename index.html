@@ -16,11 +16,18 @@
         
         .selected-row { background-color: #f0f7ff !important; }
 
-        /* Price alignment utility */
-        .price-align {
-            display: inline-flex;
-            justify-content: flex-end;
-            min-width: 100px;
+        /* Robust Price alignment grid */
+        .price-grid {
+            display: grid;
+            grid-template-columns: 14px 1fr 40px; /* Fixed Peso width, Fluid Number, Fixed Unit width */
+            align-items: baseline;
+            gap: 2px;
+            width: 160px; /* Constrain total width for alignment */
+            margin-left: auto; /* Push to the right */
+        }
+
+        .price-number {
+            text-align: right;
             font-variant-numeric: tabular-nums;
         }
 
@@ -301,10 +308,10 @@
                     <td class="px-6 py-4 font-bold text-slate-800 uppercase tracking-tight">${i.name}</td>
                     <td class="px-6 py-4 text-slate-500 uppercase text-[10px] font-bold">${i.brand || '-'}</td>
                     <td class="px-6 py-4 text-slate-500 uppercase text-[10px] font-bold">${i.supplier || '-'}</td>
-                    <td class="px-6 py-4 text-right">
-                        <div class="inline-flex items-baseline gap-1">
+                    <td class="px-6 py-4">
+                        <div class="price-grid">
                             <span class="text-[10px] font-black text-slate-400">₱</span>
-                            <span class="price-align font-mono font-black text-blue-700 text-sm">
+                            <span class="price-number font-mono font-black text-blue-700 text-sm">
                                 ${Number(i.price).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                             </span>
                             <span class="text-[8px] text-slate-400 font-black uppercase">/${i.unit}</span>
