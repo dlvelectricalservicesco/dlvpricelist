@@ -13,9 +13,16 @@
         .modal.active { opacity: 1; pointer-events: auto; }
         .modal-content { transform: scale(0.95); transition: transform 0.3s ease-in-out; }
         .modal.active .modal-content { transform: scale(1); }
+        
+        /* Selection highlight */
+        .selected-row { background-color: #eff6ff !important; }
+
         @media print {
             .no-print { display: none !important; }
             #tableContainer { box-shadow: none; border: none; }
+            .print-only-selected tr:not(.selected-row):not(.header-row) { display: none !important; }
+            body { background-color: white; }
+            main { padding: 0; }
         }
     </style>
 </head>
@@ -31,11 +38,20 @@
             </div>
             
             <div class="flex items-center gap-3">
-                <button onclick="window.print()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg" title="Print List">
-                    <i data-lucide="printer" class="w-5 h-5"></i>
-                </button>
-                <div id="adminControls" class="hidden flex items-center gap-2">
+                <div id="adminControls" class="hidden flex items-center gap-3">
+                    <!-- Selective Print Toggle -->
+                    <button id="selectionToggle" onclick="toggleSelectionMode()" class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition">
+                        <i data-lucide="check-square" class="w-4 h-4"></i>
+                        <span id="selectionLabel">Select Items</span>
+                    </button>
+                    
+                    <!-- Print Button (Admin Only) -->
+                    <button onclick="handlePrint()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200" title="Print List">
+                        <i data-lucide="printer" class="w-5 h-5"></i>
+                    </button>
+
                     <button onclick="openModal('itemModal', 'add')" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">Add Item</button>
+                    
                     <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-red-500 transition" title="Logout">
                         <i data-lucide="log-out" class="w-5 h-5"></i>
                     </button>
@@ -46,6 +62,18 @@
     </header>
 
     <main class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Selection Info Bar (Admin Only) -->
+        <div id="selectionInfo" class="hidden no-print mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center">
+            <p class="text-sm text-blue-700 font-medium">
+                <span id="selectedCount">0</span> items selected for printing.
+            </p>
+            <div class="flex gap-2">
+                <button onclick="clearSelection()" class="text-xs text-blue-600 hover:underline">Clear Selection</button>
+                <span class="text-slate-300">|</span>
+                <button onclick="selectAllVisible()" class="text-xs text-blue-600 hover:underline">Select All Visible</button>
+            </div>
+        </div>
+
         <!-- Connection Warning -->
         <div id="connectionError" class="hidden mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-3">
             <i data-lucide="alert-circle" class="w-5 h-5"></i>
@@ -69,9 +97,10 @@
 
         <div id="tableContainer" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full text-left">
+                <table id="materialsTable" class="w-full text-left">
                     <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-sm uppercase tracking-wider">
-                        <tr>
+                        <tr class="header-row">
+                            <th id="selectHeader" class="hidden px-4 py-4 w-10 no-print"></th>
                             <th class="px-6 py-4 font-semibold cursor-pointer hover:bg-slate-100 transition" onclick="handleSort('name')">Item Name</th>
                             <th class="px-6 py-4 font-semibold cursor-pointer hover:bg-slate-100 transition" onclick="handleSort('brand')">Brand</th>
                             <th class="px-6 py-4 font-semibold cursor-pointer hover:bg-slate-100 transition" onclick="handleSort('supplier')">Supplier</th>
@@ -165,7 +194,9 @@
         const db = getFirestore(app);
 
         let items = [];
+        let selectedIds = new Set();
         let isAdmin = false;
+        let isSelectionMode = false;
         let sortConfig = { key: 'name', direction: 'asc' };
 
         function showError(msg) {
@@ -214,6 +245,70 @@
 
         window.handleLogout = () => { location.reload(); };
 
+        // --- Selective Print Features ---
+        window.toggleSelectionMode = () => {
+            isSelectionMode = !isSelectionMode;
+            const toggleBtn = document.getElementById('selectionToggle');
+            const infoBar = document.getElementById('selectionInfo');
+            const selectHeader = document.getElementById('selectHeader');
+            
+            if (isSelectionMode) {
+                toggleBtn.classList.add('bg-blue-600', 'text-white');
+                toggleBtn.classList.remove('text-slate-600', 'hover:bg-slate-100');
+                document.getElementById('selectionLabel').textContent = "Exit Selection";
+                infoBar.classList.remove('hidden');
+                selectHeader.classList.remove('hidden');
+            } else {
+                toggleBtn.classList.remove('bg-blue-600', 'text-white');
+                toggleBtn.classList.add('text-slate-600', 'hover:bg-slate-100');
+                document.getElementById('selectionLabel').textContent = "Select Items";
+                infoBar.classList.add('hidden');
+                selectHeader.classList.add('hidden');
+                clearSelection();
+            }
+            render();
+        };
+
+        window.toggleRowSelection = (id) => {
+            if (!isSelectionMode) return;
+            if (selectedIds.has(id)) {
+                selectedIds.delete(id);
+            } else {
+                selectedIds.add(id);
+            }
+            updateSelectionUI();
+        };
+
+        window.updateSelectionUI = () => {
+            document.getElementById('selectedCount').textContent = selectedIds.size;
+            render();
+        };
+
+        window.clearSelection = () => {
+            selectedIds.clear();
+            updateSelectionUI();
+        };
+
+        window.selectAllVisible = () => {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            items.forEach(i => {
+                if ((i.name || '').toLowerCase().includes(term) || (i.brand || '').toLowerCase().includes(term)) {
+                    selectedIds.add(i.id);
+                }
+            });
+            updateSelectionUI();
+        };
+
+        window.handlePrint = () => {
+            const table = document.getElementById('materialsTable');
+            if (selectedIds.size > 0) {
+                table.classList.add('print-only-selected');
+            } else {
+                table.classList.remove('print-only-selected');
+            }
+            window.print();
+        };
+
         // --- Sorting ---
         window.handleSort = (key) => {
             sortConfig.direction = (sortConfig.key === key && sortConfig.direction === 'asc') ? 'desc' : 'asc';
@@ -260,10 +355,15 @@
 
             const body = document.getElementById('materialsTableBody');
             if (filtered.length === 0) {
-                body.innerHTML = `<tr><td colspan="5" class="px-6 py-12 text-center text-slate-400">No matching materials found.</td></tr>`;
+                body.innerHTML = `<tr><td colspan="${isSelectionMode ? 6 : 5}" class="px-6 py-12 text-center text-slate-400">No matching materials found.</td></tr>`;
             } else {
                 body.innerHTML = filtered.map(i => `
-                    <tr class="group hover:bg-blue-50/30 transition-colors">
+                    <tr onclick="toggleRowSelection('${i.id}')" class="group transition-colors ${selectedIds.has(i.id) ? 'selected-row' : 'hover:bg-blue-50/30'} ${isSelectionMode ? 'cursor-pointer' : ''}">
+                        <td class="${isSelectionMode ? '' : 'hidden'} px-4 py-4 no-print">
+                            <div class="w-5 h-5 border-2 rounded flex items-center justify-center transition ${selectedIds.has(i.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}">
+                                ${selectedIds.has(i.id) ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}
+                            </div>
+                        </td>
                         <td class="px-6 py-4 font-semibold text-slate-900">${i.name}</td>
                         <td class="px-6 py-4 text-slate-500">${i.brand || '<span class="text-slate-300 italic">No brand</span>'}</td>
                         <td class="px-6 py-4 text-slate-500">${i.supplier || '-'}</td>
@@ -272,11 +372,11 @@
                             <span class="text-[10px] text-slate-400 font-medium uppercase ml-1">/${i.unit || 'pc'}</span>
                         </td>
                         <td class="admin-only ${isAdmin ? '' : 'hidden'} px-6 py-4 text-right no-print">
-                            <div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition">
-                                <button onclick="editItem('${i.id}')" class="text-slate-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-100 transition">
+                            <div class="flex justify-end gap-1 ${isSelectionMode ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'} transition">
+                                <button onclick="event.stopPropagation(); editItem('${i.id}')" class="text-slate-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-100 transition">
                                     <i data-lucide="edit-3" class="w-4 h-4"></i>
                                 </button>
-                                <button onclick="deleteItem('${i.id}')" class="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-100 transition">
+                                <button onclick="event.stopPropagation(); deleteItem('${i.id}')" class="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-100 transition">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                                 </button>
                             </div>
