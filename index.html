@@ -130,8 +130,8 @@
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
         // --- Configuration Handling ---
-        // INSTRUCTIONS: If deploying to Netlify, paste your actual Firebase config object here.
-        const manualFirebaseConfig = null; // e.g., { apiKey: "...", ... }
+        // INSTRUCTIONS: Paste your actual Firebase config object here from Firebase Console.
+        const manualFirebaseConfig = null; 
         
         const firebaseConfig = manualFirebaseConfig || (typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -144,7 +144,7 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
             } else {
-                showError("Firebase configuration not found. You must hardcode your Firebase credentials in the script tag for production use.");
+                showError("Firebase configuration not found. Replace manualFirebaseConfig in the code with your Firebase credentials.");
             }
         } catch (e) {
             showError("Failed to initialize Firebase: " + e.message);
@@ -174,7 +174,6 @@
                 } else {
                     document.getElementById('modalTitle').textContent = "Edit Item";
                 }
-                // Auto focus first input
                 setTimeout(() => document.getElementById('itemName').focus(), 100);
             } else if (id === 'loginModal') {
                 setTimeout(() => document.getElementById('loginPassword').focus(), 100);
@@ -260,7 +259,6 @@
             document.getElementById('loadingState').classList.add('hidden');
         };
 
-        // --- Data Initialization ---
         if (auth && db) {
             const start = async () => {
                 try {
@@ -285,7 +283,6 @@
             start();
         }
 
-        // --- Form Submission ---
         document.getElementById('itemForm').onsubmit = async (e) => {
             e.preventDefault();
             if (!db) return;
@@ -315,7 +312,7 @@
                 closeModal('itemModal');
             } catch (err) { 
                 console.error("Save failed", err);
-                errorEl.textContent = "Error: " + (err.code === 'permission-denied' ? "Insufficient permissions (Check Firestore Rules)" : err.message);
+                errorEl.textContent = "Error: " + (err.code === 'permission-denied' ? "Check Firestore Rules (currently blocking write)" : err.message);
                 errorEl.classList.remove('hidden');
             } finally {
                 saveBtn.disabled = false;
@@ -325,7 +322,10 @@
 
         // Handle enter key in login modal
         document.getElementById('loginPassword').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') submitLogin();
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                submitLogin();
+            }
         });
 
         document.getElementById('searchInput').oninput = render;
