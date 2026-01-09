@@ -6,6 +6,8 @@
     <title>DLV Materials Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Library para sa Excel Processing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -16,14 +18,13 @@
         
         .selected-row { background-color: #f0f7ff !important; }
 
-        /* Robust Price alignment grid */
         .price-grid {
             display: grid;
-            grid-template-columns: 14px 1fr 40px; /* Fixed Peso width, Fluid Number, Fixed Unit width */
+            grid-template-columns: 14px 1fr 40px;
             align-items: baseline;
             gap: 2px;
-            width: 160px; /* Constrain total width for alignment */
-            margin-left: auto; /* Push to the right */
+            width: 160px;
+            margin-left: auto;
         }
 
         .price-number {
@@ -63,6 +64,12 @@
                         <i data-lucide="printer" class="w-5 h-5"></i>
                     </button>
 
+                    <!-- Bagong Bulk Upload Button -->
+                    <button onclick="openModal('bulkModal')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase hover:bg-emerald-700 transition flex items-center gap-2">
+                        <i data-lucide="file-up" class="w-4 h-4"></i>
+                        Bulk Upload
+                    </button>
+
                     <button onclick="openModal('itemModal', 'add')" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase hover:bg-blue-700 transition">Add Item</button>
                     
                     <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-red-500 transition" title="Logout">
@@ -75,6 +82,7 @@
     </header>
 
     <main class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Status and Selection UI -->
         <div id="selectionInfo" class="hidden no-print mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center">
             <p class="text-xs text-blue-700 font-bold uppercase">
                 <span id="selectedCount">0</span> items selected for printing.
@@ -89,7 +97,7 @@
             <i data-lucide="alert-circle" class="w-5 h-5"></i>
             <div>
                 <p id="errorMsg" class="font-bold uppercase text-sm">Database connection error.</p>
-                <p class="text-[10px] mt-1 uppercase">Check your Firebase Console settings and Security Rules.</p>
+                <p class="text-[10px] mt-1 uppercase">Authentication required to view data.</p>
             </div>
         </div>
 
@@ -131,12 +139,39 @@
                 <h3 class="text-lg font-black uppercase">Admin access</h3>
                 <button onclick="closeModal('loginModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
-            <!-- Wrapped in form to handle Enter key automatically -->
             <form id="loginForm" onsubmit="event.preventDefault(); submitLogin();">
                 <input type="password" id="loginPassword" placeholder="PASSWORD" class="w-full p-2.5 border border-slate-200 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 outline-none uppercase text-xs">
                 <div id="loginError" class="hidden text-red-500 text-[10px] mb-4 font-bold uppercase">Invalid password</div>
                 <button type="submit" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold uppercase text-xs hover:bg-blue-700 transition">Login</button>
             </form>
+        </div>
+    </div>
+
+    <!-- Bulk Upload Modal -->
+    <div id="bulkModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+        <div class="modal-content bg-white p-6 rounded-xl w-full max-w-md shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-black uppercase">Bulk Excel Upload</h3>
+                <button onclick="closeModal('bulkModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="space-y-4">
+                <div class="p-4 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl text-center">
+                    <input type="file" id="excelFile" class="hidden" accept=".xlsx, .xls, .csv">
+                    <label for="excelFile" class="cursor-pointer block">
+                        <i data-lucide="upload-cloud" class="w-10 h-10 text-slate-300 mx-auto mb-2"></i>
+                        <p class="text-xs font-bold uppercase text-slate-500">I-click para pumili ng Excel file</p>
+                        <p class="text-[10px] text-slate-400 mt-1">Columns needed: Material, Brand, Supplier, Price, Unit</p>
+                    </label>
+                </div>
+                <div id="uploadProgress" class="hidden">
+                    <div class="w-full bg-slate-100 rounded-full h-1.5 mb-2">
+                        <div id="progressBar" class="bg-blue-600 h-1.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                    <p id="progressText" class="text-[10px] font-bold uppercase text-slate-500">Processing...</p>
+                </div>
+                <div id="bulkError" class="hidden p-3 bg-red-50 text-red-600 text-[10px] font-bold uppercase rounded-lg"></div>
+                <button id="startBulkBtn" onclick="handleBulkUpload()" class="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-black uppercase text-xs hover:bg-emerald-700 transition disabled:opacity-50">Simulan ang Upload</button>
+            </div>
         </div>
     </div>
 
@@ -181,7 +216,7 @@
 
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-        import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
         const firebaseConfig = {
@@ -196,13 +231,24 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = 'dlv-v1';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'dlv-v1';
 
         let items = [];
         let selectedIds = new Set();
         let isAdmin = false;
         let isSelectionMode = false;
         let sortConfig = { key: 'name', direction: 'asc' };
+        let currentUser = null;
+
+        // --- Auth Listener (Rule 3) ---
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            if (user) {
+                initApp();
+            } else {
+                signInAnonymously(auth).catch(e => console.error("Auth error", e));
+            }
+        });
 
         window.openModal = (id, mode = 'add') => {
             document.getElementById(id).classList.add('active');
@@ -216,12 +262,18 @@
             } else if (id === 'loginModal') {
                 document.getElementById('loginPassword').value = "";
                 document.getElementById('loginError').classList.add('hidden');
-                // Focus the password field
                 setTimeout(() => document.getElementById('loginPassword').focus(), 100);
             }
         };
 
-        window.closeModal = (id) => document.getElementById(id).classList.remove('active');
+        window.closeModal = (id) => {
+            document.getElementById(id).classList.remove('active');
+            if (id === 'bulkModal') {
+                document.getElementById('uploadProgress').classList.add('hidden');
+                document.getElementById('bulkError').classList.add('hidden');
+                document.getElementById('excelFile').value = "";
+            }
+        };
 
         window.submitLogin = () => {
             if (document.getElementById('loginPassword').value === 'admin') {
@@ -234,6 +286,74 @@
             } else {
                 document.getElementById('loginError').classList.remove('hidden');
             }
+        };
+
+        // --- EXCEL BULK UPLOAD LOGIC ---
+        window.handleBulkUpload = async () => {
+            if (!currentUser) return;
+            const fileInput = document.getElementById('excelFile');
+            const file = fileInput.files[0];
+            const startBtn = document.getElementById('startBulkBtn');
+            const progressArea = document.getElementById('uploadProgress');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const errorEl = document.getElementById('bulkError');
+
+            if (!file) {
+                errorEl.textContent = "Mangyaring pumili muna ng file.";
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            errorEl.classList.add('hidden');
+            startBtn.disabled = true;
+            progressArea.classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (jsonData.length === 0) throw new Error("Walang data na nakita sa file.");
+
+                    let uploadedCount = 0;
+                    const materialsRef = collection(db, 'artifacts', appId, 'public', 'data', 'materials');
+
+                    for (const row of jsonData) {
+                        const materialData = {
+                            name: (row.Material || row.material || row.Description || "").toString().trim(),
+                            brand: (row.Brand || row.brand || "").toString().trim(),
+                            supplier: (row.Supplier || row.supplier || "").toString().trim(),
+                            price: parseFloat(row.Price || row.price || 0),
+                            unit: (row.Unit || row.unit || "PC").toString().trim(),
+                            updatedAt: serverTimestamp()
+                        };
+
+                        if (!materialData.name) continue;
+
+                        await addDoc(materialsRef, materialData);
+                        
+                        uploadedCount++;
+                        const percent = Math.round((uploadedCount / jsonData.length) * 100);
+                        progressBar.style.width = percent + "%";
+                        progressText.textContent = `Uploading: ${uploadedCount} of ${jsonData.length}`;
+                    }
+
+                    alert(`Matagumpay na na-upload ang ${uploadedCount} items!`);
+                    closeModal('bulkModal');
+                } catch (err) {
+                    console.error(err);
+                    errorEl.textContent = "Error: " + err.message;
+                    errorEl.classList.remove('hidden');
+                } finally {
+                    startBtn.disabled = false;
+                }
+            };
+            reader.readAsArrayBuffer(file);
         };
 
         window.handleLogout = () => location.reload();
@@ -294,7 +414,10 @@
         };
 
         window.deleteItem = async (id) => {
-            if (confirm('DELETE THIS MATERIAL?')) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
+            if (!currentUser) return;
+            if (confirm('DELETE THIS MATERIAL?')) {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
+            }
         };
 
         const render = () => {
@@ -346,31 +469,22 @@
             lucide.createIcons();
         };
 
-        const start = async () => {
-            try {
-                await signInAnonymously(auth);
-                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), (snap) => {
-                    items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    render();
-                }, (err) => {
-                    console.error("Firestore error:", err);
-                    document.getElementById('connectionError').classList.remove('hidden');
-                    document.getElementById('errorMsg').textContent = "Database sync failed.";
-                });
-            } catch (e) { console.error(e); }
+        const initApp = async () => {
+            const materialsRef = collection(db, 'artifacts', appId, 'public', 'data', 'materials');
+            onSnapshot(materialsRef, (snap) => {
+                items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                render();
+            }, (err) => {
+                console.error("Firestore error:", err);
+                document.getElementById('connectionError').classList.remove('hidden');
+            });
         };
-        start();
 
-        // Form submission handler for material items
         document.getElementById('itemForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (!currentUser) return;
             const saveBtn = document.getElementById('saveBtn');
-            const errorEl = document.getElementById('saveError');
-            
             saveBtn.disabled = true;
-            saveBtn.textContent = "SAVING...";
-            errorEl.classList.add('hidden');
-
             const id = document.getElementById('itemId').value;
             const data = {
                 name: document.getElementById('itemName').value,
@@ -380,22 +494,12 @@
                 unit: document.getElementById('itemUnit').value,
                 updatedAt: serverTimestamp()
             };
-
             try {
-                if (id) {
-                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data);
-                } else {
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), data);
-                }
+                if (id) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data);
+                else await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), data);
                 closeModal('itemModal');
-            } catch (err) {
-                console.error("Save error:", err);
-                errorEl.textContent = "Error saving: " + err.message;
-                errorEl.classList.remove('hidden');
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.textContent = "SAVE CHANGES";
-            }
+            } catch (err) { alert(err.message); }
+            finally { saveBtn.disabled = false; }
         });
 
         document.getElementById('searchInput').oninput = render;
