@@ -134,11 +134,30 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, getDocs, serverTimestamp, query } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
-        const firebaseConfig = JSON.parse(__firebase_config);
+        // Helper to safely get globals with error handling
+        const getFirebaseConfig = () => {
+            try {
+                return typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+            } catch (e) {
+                console.error("Firebase config error:", e);
+                return null;
+            }
+        };
+
+        const firebaseConfig = getFirebaseConfig();
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'dlv-v1';
+
+        // Guard against missing config
+        if (!firebaseConfig) {
+            document.getElementById('loadingState').innerHTML = `
+                <p class="text-red-500 text-xs font-bold uppercase">Configuration missing. Please refresh.</p>
+            `;
+            throw new Error("__firebase_config is not defined");
+        }
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'dlv-v1';
 
         let items = [];
         let selectedIds = new Set();
@@ -147,7 +166,6 @@
         let sortConfig = { key: 'name', direction: 'asc' };
         let currentUser = null;
 
-        // "Fetch Once" strategy to minimize Daily Read Quota
         const refreshData = async () => {
             if (!currentUser) return;
             document.getElementById('loadingState').classList.remove('hidden');
@@ -167,10 +185,14 @@
         };
 
         const initAuth = async () => {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.error("Auth init error:", err);
             }
         };
 
@@ -259,7 +281,6 @@
 
         window.deleteItem = async (id) => {
             if (!confirm('Delete this material?')) return;
-            // Local update first for speed
             items = items.filter(i => i.id !== id);
             render();
             await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
