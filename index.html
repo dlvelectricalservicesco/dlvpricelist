@@ -91,6 +91,7 @@
                 <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest">
                     <tr class="header-row">
                         <th id="selectHeader" class="hidden px-4 py-4 w-12 no-print"></th>
+                        <th class="px-6 py-4 w-16">ID NO.</th>
                         <th class="px-6 py-4 cursor-pointer" onclick="handleSort('name')">Material</th>
                         <th class="px-6 py-4 cursor-pointer" onclick="handleSort('brand')">Brand</th>
                         <th class="px-6 py-4 cursor-pointer" onclick="handleSort('supplier')">Supplier</th>
@@ -182,7 +183,6 @@
             else signInAnonymously(auth);
         });
 
-        // --- IMPROVED EXCEL UPLOAD LOGIC ---
         window.handleExcelUpload = (event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -206,9 +206,7 @@
                     
                     for (const row of jsonData) {
                         try {
-                            // Mas matalinong pagkuha ng presyo
                             let rawPrice = row.price || row.Price || row.PRICE || row.Cost || 0;
-                            // Tanggalin ang currency symbols at commas para hindi maging NaN
                             let cleanPrice = typeof rawPrice === 'string' 
                                 ? parseFloat(rawPrice.replace(/[^0-9.-]+/g, "")) 
                                 : parseFloat(rawPrice);
@@ -335,13 +333,14 @@
                 return sortConfig.direction === 'asc' ? (v1 > v2 ? 1 : -1) : (v1 < v2 ? 1 : -1);
             });
 
-            document.getElementById('materialsTableBody').innerHTML = filtered.map(i => `
+            document.getElementById('materialsTableBody').innerHTML = filtered.map((i, index) => `
                 <tr onclick="toggleRowSelection('${i.id}')" class="group transition-colors ${selectedIds.has(i.id) ? 'selected-row' : 'hover:bg-slate-50'} ${isSelectionMode ? 'cursor-pointer' : ''}">
                     <td class="${isSelectionMode ? '' : 'hidden'} px-4 py-4 no-print">
                         <div class="w-5 h-5 border-2 rounded flex items-center justify-center ${selectedIds.has(i.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}">
                             ${selectedIds.has(i.id) ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}
                         </div>
                     </td>
+                    <td class="px-6 py-4 text-slate-400 font-mono text-[10px] font-bold">#${(index + 1).toString().padStart(3, '0')}</td>
                     <td class="px-6 py-4 font-bold text-slate-800 uppercase tracking-tight">${i.name}</td>
                     <td class="px-6 py-4 text-slate-500 uppercase text-[10px] font-bold">${i.brand || '-'}</td>
                     <td class="px-6 py-4 text-slate-500 uppercase text-[10px] font-bold">${i.supplier || '-'}</td>
