@@ -41,7 +41,6 @@
                     <i data-lucide="refresh-cw" class="w-5 h-5"></i>
                 </button>
                 <div id="adminControls" class="hidden flex items-center gap-3">
-                    <!-- Hidden file input for Excel -->
                     <input type="file" id="excelInput" accept=".xlsx, .xls" class="hidden" onchange="handleExcelUpload(event)">
                     
                     <button onclick="document.getElementById('excelInput').click()" class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition">
@@ -62,7 +61,6 @@
     </header>
 
     <main class="max-w-7xl mx-auto px-4 py-8">
-        <!-- Import Progress/Feedback -->
         <div id="importStatus" class="hidden no-print mb-4 p-3 bg-green-50 border border-green-100 rounded-lg flex justify-between items-center">
             <p id="importMessage" class="text-xs text-green-700 font-bold uppercase"></p>
             <button onclick="this.parentElement.classList.add('hidden')" class="text-xs text-green-600 font-bold uppercase">Dismiss</button>
@@ -105,7 +103,6 @@
         </div>
     </main>
 
-    <!-- Admin Login Modal -->
     <div id="loginModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
         <div class="modal-content bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl">
             <div class="flex justify-between items-center mb-4">
@@ -119,7 +116,6 @@
         </div>
     </div>
 
-    <!-- Item Modal -->
     <div id="itemModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
         <div class="modal-content bg-white p-6 rounded-xl w-full max-w-md shadow-2xl">
             <div class="flex justify-between items-center mb-6">
@@ -170,20 +166,15 @@
         const refreshData = async () => {
             const loadingEl = document.getElementById('loadingState');
             const tableEl = document.getElementById('tableContainer');
-            
             loadingEl.classList.remove('hidden');
             tableEl.classList.add('hidden');
-            
             try {
                 const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'materials'));
                 const snap = await getDocs(q);
                 items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
-            } catch (err) {
-                console.error("Fetch error:", err);
-            } finally {
-                loadingEl.classList.add('hidden');
-            }
+            } catch (err) { console.error("Fetch error:", err); }
+            finally { loadingEl.classList.add('hidden'); }
         };
 
         onAuthStateChanged(auth, (user) => {
@@ -191,7 +182,7 @@
             else signInAnonymously(auth);
         });
 
-        // --- EXCEL UPLOAD LOGIC ---
+        // --- IMPROVED EXCEL UPLOAD LOGIC ---
         window.handleExcelUpload = (event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -202,28 +193,32 @@
                 const workbook = XLSX.read(data, { type: 'array' });
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
-                
-                // Convert to JSON
                 const jsonData = XLSX.utils.sheet_to_json(worksheet);
                 
                 if (jsonData.length === 0) {
-                    alert("Empty excel file!");
+                    alert("Walang laman ang Excel file!");
                     return;
                 }
 
-                if (confirm(`Sigurado ka bang i-iimport ang ${jsonData.length} items mula sa Excel?`)) {
+                if (confirm(`I-import ang ${jsonData.length} items mula sa Excel?`)) {
                     document.getElementById('loadingState').classList.remove('hidden');
                     let successCount = 0;
                     
                     for (const row of jsonData) {
                         try {
-                            // Column names should match: name, brand, supplier, price, unit
+                            // Mas matalinong pagkuha ng presyo
+                            let rawPrice = row.price || row.Price || row.PRICE || row.Cost || 0;
+                            // Tanggalin ang currency symbols at commas para hindi maging NaN
+                            let cleanPrice = typeof rawPrice === 'string' 
+                                ? parseFloat(rawPrice.replace(/[^0-9.-]+/g, "")) 
+                                : parseFloat(rawPrice);
+                            
                             const materialData = {
-                                name: (row.name || row.Name || row.Material || row.material || "").toString().toUpperCase(),
-                                brand: (row.brand || row.Brand || "").toString().toUpperCase(),
-                                supplier: (row.supplier || row.Supplier || "").toString().toUpperCase(),
-                                price: parseFloat(row.price || row.Price || 0),
-                                unit: (row.unit || row.Unit || "PC").toString().toUpperCase(),
+                                name: (row.name || row.Name || row.Material || row.DESCRIPTION || "").toString().toUpperCase(),
+                                brand: (row.brand || row.Brand || row.BRAND || "").toString().toUpperCase(),
+                                supplier: (row.supplier || row.Supplier || row.SUPPLIER || "").toString().toUpperCase(),
+                                price: isNaN(cleanPrice) ? 0 : cleanPrice,
+                                unit: (row.unit || row.Unit || row.UNIT || "PC").toString().toUpperCase(),
                                 updatedAt: serverTimestamp()
                             };
 
@@ -231,16 +226,14 @@
                                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), materialData);
                                 successCount++;
                             }
-                        } catch (err) {
-                            console.error("Row import error:", err);
-                        }
+                        } catch (err) { console.error("Row import error:", err); }
                     }
 
-                    document.getElementById('importMessage').textContent = `SUCCESS: NA-IMPORT ANG ${successCount} ITEMS MULA SA EXCEL.`;
+                    document.getElementById('importMessage').textContent = `SUCCESS: ${successCount} ITEMS IMPORTED.`;
                     document.getElementById('importStatus').classList.remove('hidden');
                     refreshData();
                 }
-                event.target.value = ""; // Reset input
+                event.target.value = "";
             };
             reader.readAsArrayBuffer(file);
         };
@@ -302,11 +295,8 @@
 
         window.handlePrint = () => {
             const table = document.getElementById('materialsTable');
-            if (selectedIds.size > 0) {
-                table.classList.add('print-only-selected');
-            } else {
-                table.classList.remove('print-only-selected');
-            }
+            if (selectedIds.size > 0) table.classList.add('print-only-selected');
+            else table.classList.remove('print-only-selected');
             window.print();
         };
 
@@ -370,7 +360,6 @@
                     </td>
                 </tr>
             `).join('');
-            
             document.getElementById('tableContainer').classList.remove('hidden');
             lucide.createIcons();
         };
@@ -379,7 +368,6 @@
             e.preventDefault();
             const saveBtn = document.getElementById('saveBtn');
             saveBtn.disabled = true;
-            
             const id = document.getElementById('itemId').value;
             const data = {
                 name: document.getElementById('itemName').value,
@@ -389,7 +377,6 @@
                 unit: document.getElementById('itemUnit').value,
                 updatedAt: serverTimestamp()
             };
-
             try {
                 if (id) {
                     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data);
