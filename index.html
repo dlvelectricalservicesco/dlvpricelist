@@ -91,7 +91,7 @@
                 <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest">
                     <tr class="header-row">
                         <th id="selectHeader" class="hidden px-4 py-4 w-12 no-print"></th>
-                        <th class="px-6 py-4 w-16">ID NO.</th>
+                        <th class="px-6 py-4 w-20 cursor-pointer" onclick="handleSort('idNo')">ID NO.</th>
                         <th class="px-6 py-4 cursor-pointer" onclick="handleSort('name')">Material</th>
                         <th class="px-6 py-4 cursor-pointer" onclick="handleSort('brand')">Brand</th>
                         <th class="px-6 py-4 cursor-pointer" onclick="handleSort('supplier')">Supplier</th>
@@ -125,6 +125,10 @@
             </div>
             <form id="itemForm" class="space-y-4">
                 <input type="hidden" id="itemId">
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-100 mb-2">
+                    <p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Assigned Unique ID</p>
+                    <p id="displayIdNo" class="text-sm font-mono font-bold text-slate-700">NEW ITEM</p>
+                </div>
                 <input type="text" id="itemName" placeholder="DESCRIPTION" class="w-full p-2 border border-slate-200 rounded-lg uppercase text-xs" required>
                 <div class="grid grid-cols-2 gap-4">
                     <input type="text" id="itemBrand" placeholder="BRAND" class="w-full p-2 border border-slate-200 rounded-lg uppercase text-xs">
@@ -183,6 +187,13 @@
             else signInAnonymously(auth);
         });
 
+        // Function to get the next unique ID Number
+        const getNextIdNo = () => {
+            if (items.length === 0) return 1;
+            const maxId = Math.max(...items.map(i => parseInt(i.idNo) || 0));
+            return maxId + 1;
+        };
+
         window.handleExcelUpload = (event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -203,20 +214,24 @@
                 if (confirm(`I-import ang ${jsonData.length} items mula sa Excel?`)) {
                     document.getElementById('loadingState').classList.remove('hidden');
                     let successCount = 0;
+                    let currentNextId = getNextIdNo();
                     
                     for (const row of jsonData) {
                         try {
-                            let rawPrice = row.price || row.Price || row.PRICE || row.Cost || 0;
+                            let rawPrice = row.price || row.Price || row.PRICE || row.Cost || row.COST || 0;
+                            let rawUnit = row.unit || row.Unit || row.UNIT || row.uom || row.UOM || row.Measure || row.MEASURE || "PC";
+                            
                             let cleanPrice = typeof rawPrice === 'string' 
                                 ? parseFloat(rawPrice.replace(/[^0-9.-]+/g, "")) 
                                 : parseFloat(rawPrice);
                             
                             const materialData = {
-                                name: (row.name || row.Name || row.Material || row.DESCRIPTION || "").toString().toUpperCase(),
+                                idNo: currentNextId++, // Assign unique ID during import
+                                name: (row.name || row.Name || row.Material || row.DESCRIPTION || row.Description || "").toString().toUpperCase(),
                                 brand: (row.brand || row.Brand || row.BRAND || "").toString().toUpperCase(),
                                 supplier: (row.supplier || row.Supplier || row.SUPPLIER || "").toString().toUpperCase(),
                                 price: isNaN(cleanPrice) ? 0 : cleanPrice,
-                                unit: (row.unit || row.Unit || row.UNIT || "PC").toString().toUpperCase(),
+                                unit: rawUnit.toString().toUpperCase(),
                                 updatedAt: serverTimestamp()
                             };
 
@@ -227,7 +242,7 @@
                         } catch (err) { console.error("Row import error:", err); }
                     }
 
-                    document.getElementById('importMessage').textContent = `SUCCESS: ${successCount} ITEMS IMPORTED.`;
+                    document.getElementById('importMessage').textContent = `SUCCESS: ${successCount} ITEMS IMPORTED WITH UNIQUE IDS.`;
                     document.getElementById('importStatus').classList.remove('hidden');
                     refreshData();
                 }
@@ -238,9 +253,12 @@
 
         window.openModal = (id, mode = 'add') => {
             document.getElementById(id).classList.add('active');
-            if (id === 'itemModal' && mode === 'add') {
-                document.getElementById('itemForm').reset();
-                document.getElementById('itemId').value = "";
+            if (id === 'itemModal') {
+                if (mode === 'add') {
+                    document.getElementById('itemForm').reset();
+                    document.getElementById('itemId').value = "";
+                    document.getElementById('displayIdNo').textContent = "NEW ITEM (WILL BE #" + getNextIdNo().toString().padStart(3, '0') + ")";
+                }
             }
         };
 
@@ -312,11 +330,12 @@
             document.getElementById('itemSupplier').value = item.supplier || '';
             document.getElementById('itemPrice').value = item.price;
             document.getElementById('itemUnit').value = item.unit;
+            document.getElementById('displayIdNo').textContent = "ID NO: #" + (item.idNo || 0).toString().padStart(3, '0');
             openModal('itemModal', 'edit');
         };
 
         window.deleteItem = async (id) => {
-            if (!confirm('Delete this item?')) return;
+            if (!confirm('Delete this item? Permanent ID will be retired.')) return;
             items = items.filter(i => i.id !== id);
             render();
             await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
@@ -326,21 +345,22 @@
             const term = document.getElementById('searchInput').value.toLowerCase();
             const filtered = items.filter(i => 
                 (i.name || '').toLowerCase().includes(term) || 
-                (i.brand || '').toLowerCase().includes(term)
+                (i.brand || '').toLowerCase().includes(term) ||
+                (i.idNo || '').toString().includes(term)
             ).sort((a, b) => {
                 let v1 = a[sortConfig.key], v2 = b[sortConfig.key];
                 if (typeof v1 === 'string') { v1 = v1.toLowerCase(); v2 = v2.toLowerCase(); }
                 return sortConfig.direction === 'asc' ? (v1 > v2 ? 1 : -1) : (v1 < v2 ? 1 : -1);
             });
 
-            document.getElementById('materialsTableBody').innerHTML = filtered.map((i, index) => `
+            document.getElementById('materialsTableBody').innerHTML = filtered.map((i) => `
                 <tr onclick="toggleRowSelection('${i.id}')" class="group transition-colors ${selectedIds.has(i.id) ? 'selected-row' : 'hover:bg-slate-50'} ${isSelectionMode ? 'cursor-pointer' : ''}">
                     <td class="${isSelectionMode ? '' : 'hidden'} px-4 py-4 no-print">
                         <div class="w-5 h-5 border-2 rounded flex items-center justify-center ${selectedIds.has(i.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}">
                             ${selectedIds.has(i.id) ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}
                         </div>
                     </td>
-                    <td class="px-6 py-4 text-slate-400 font-mono text-[10px] font-bold">#${(index + 1).toString().padStart(3, '0')}</td>
+                    <td class="px-6 py-4 text-blue-600 font-mono text-[11px] font-black">#${(i.idNo || 0).toString().padStart(3, '0')}</td>
                     <td class="px-6 py-4 font-bold text-slate-800 uppercase tracking-tight">${i.name}</td>
                     <td class="px-6 py-4 text-slate-500 uppercase text-[10px] font-bold">${i.brand || '-'}</td>
                     <td class="px-6 py-4 text-slate-500 uppercase text-[10px] font-bold">${i.supplier || '-'}</td>
@@ -368,20 +388,24 @@
             const saveBtn = document.getElementById('saveBtn');
             saveBtn.disabled = true;
             const id = document.getElementById('itemId').value;
+            
             const data = {
-                name: document.getElementById('itemName').value,
-                brand: document.getElementById('itemBrand').value,
-                supplier: document.getElementById('itemSupplier').value,
+                name: document.getElementById('itemName').value.toUpperCase(),
+                brand: document.getElementById('itemBrand').value.toUpperCase(),
+                supplier: document.getElementById('itemSupplier').value.toUpperCase(),
                 price: parseFloat(document.getElementById('itemPrice').value) || 0,
-                unit: document.getElementById('itemUnit').value,
+                unit: document.getElementById('itemUnit').value.toUpperCase(),
                 updatedAt: serverTimestamp()
             };
+
             try {
                 if (id) {
                     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data);
                     const idx = items.findIndex(i => i.id === id);
                     items[idx] = { ...items[idx], ...data };
                 } else {
+                    // Assign NEW permanent ID only for new items
+                    data.idNo = getNextIdNo();
                     const docRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), data);
                     items.push({ id: docRef.id, ...data });
                 }
