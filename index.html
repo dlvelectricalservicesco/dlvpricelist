@@ -13,31 +13,16 @@
         .modal.active { opacity: 1; pointer-events: auto; }
         .modal-content { transform: scale(0.95); transition: transform 0.3s ease-in-out; }
         .modal.active .modal-content { transform: scale(1); }
-        
         .selected-row { background-color: #f0f7ff !important; }
-
-        /* Robust Price alignment grid */
-        .price-grid {
-            display: grid;
-            grid-template-columns: 14px 1fr 40px; /* Fixed Peso width, Fluid Number, Fixed Unit width */
-            align-items: baseline;
-            gap: 2px;
-            width: 160px; /* Constrain total width for alignment */
-            margin-left: auto; /* Push to the right */
-        }
-
-        .price-number {
-            text-align: right;
-            font-variant-numeric: tabular-nums;
-        }
-
-        @media print {
-            .no-print { display: none !important; }
-            #tableContainer { box-shadow: none; border: none; }
-            .print-only-selected tr:not(.selected-row):not(.header-row) { display: none !important; }
-            body { background-color: white; }
-            main { padding: 0; max-width: 100%; }
-            .px-6 { padding-left: 1rem; padding-right: 1rem; }
+        .price-grid { display: grid; grid-template-columns: 14px 1fr 40px; align-items: baseline; gap: 2px; width: 160px; margin-left: auto; }
+        .price-number { text-align: right; font-variant-numeric: tabular-nums; }
+        @media print { 
+            .no-print { display: none !important; } 
+            #tableContainer { box-shadow: none; border: none; } 
+            .print-only-selected tr:not(.selected-row):not(.header-row) { display: none !important; } 
+            body { background-color: white; } 
+            main { padding: 0; max-width: 100%; } 
+            .px-6 { padding-left: 1rem; padding-right: 1rem; } 
         }
     </style>
 </head>
@@ -46,28 +31,23 @@
     <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm no-print">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
             <div class="flex items-center gap-2">
-                <div class="bg-blue-600 p-2 rounded-lg text-white">
-                    <i data-lucide="package" class="w-6 h-6"></i>
-                </div>
+                <div class="bg-blue-600 p-2 rounded-lg text-white"><i data-lucide="package" class="w-6 h-6"></i></div>
                 <h1 class="text-xl font-bold uppercase tracking-tight">DLV Materials</h1>
             </div>
             
             <div class="flex items-center gap-3">
+                <!-- Sync Button: Tipid sa reads dahil user-controlled ang pag-fetch -->
+                <button onclick="refreshData()" class="p-2 text-slate-500 hover:text-blue-600 transition" title="Refresh Data">
+                    <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                </button>
+                
                 <div id="adminControls" class="hidden flex items-center gap-3">
                     <button id="selectionToggle" onclick="toggleSelectionMode()" class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition">
-                        <i data-lucide="check-square" class="w-4 h-4"></i>
-                        <span id="selectionLabel" class="uppercase text-xs">Select Items</span>
+                        <i data-lucide="check-square" class="w-4 h-4"></i><span id="selectionLabel" class="uppercase text-xs">Select Items</span>
                     </button>
-                    
-                    <button onclick="handlePrint()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200" title="Print List">
-                        <i data-lucide="printer" class="w-5 h-5"></i>
-                    </button>
-
+                    <button onclick="handlePrint()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200" title="Print List"><i data-lucide="printer" class="w-5 h-5"></i></button>
                     <button onclick="openModal('itemModal', 'add')" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase hover:bg-blue-700 transition">Add Item</button>
-                    
-                    <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-red-500 transition" title="Logout">
-                        <i data-lucide="log-out" class="w-5 h-5"></i>
-                    </button>
+                    <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-red-500 transition"><i data-lucide="log-out" class="w-5 h-5"></i></button>
                 </div>
                 <button id="loginBtn" onclick="openModal('loginModal')" class="text-xs font-bold uppercase text-slate-600 hover:text-blue-600">Admin Login</button>
             </div>
@@ -76,148 +56,136 @@
 
     <main class="max-w-7xl mx-auto px-4 py-8">
         <div id="selectionInfo" class="hidden no-print mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center">
-            <p class="text-xs text-blue-700 font-bold uppercase">
-                <span id="selectedCount">0</span> items selected for printing.
-            </p>
+            <p class="text-xs text-blue-700 font-bold uppercase"><span id="selectedCount">0</span> items selected.</p>
             <div class="flex gap-4">
-                <button onclick="clearSelection()" class="text-xs text-blue-600 font-bold uppercase hover:text-blue-800">Clear Selection</button>
-                <button onclick="selectAllVisible()" class="text-xs text-blue-600 font-bold uppercase hover:text-blue-800">Select All Visible</button>
-            </div>
-        </div>
-
-        <div id="connectionError" class="hidden mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-3">
-            <i data-lucide="alert-circle" class="w-5 h-5"></i>
-            <div>
-                <p id="errorMsg" class="font-bold uppercase text-sm">Database connection error.</p>
-                <p class="text-[10px] mt-1 uppercase">Check your Firebase Console settings and Security Rules.</p>
+                <button onclick="clearSelection()" class="text-xs text-blue-600 font-bold uppercase">Clear</button>
+                <button onclick="selectAllVisible()" class="text-xs text-blue-600 font-bold uppercase">Select All</button>
             </div>
         </div>
 
         <div class="flex flex-col sm:flex-row gap-4 mb-8 no-print">
             <div class="relative flex-1">
                 <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
-                <input type="text" id="searchInput" placeholder="SEARCH MATERIALS, BRANDS, OR SUPPLIERS..." class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition text-sm uppercase">
+                <input type="text" id="searchInput" placeholder="SEARCH MATERIALS, BRANDS, SUPPLIERS..." class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg outline-none text-sm uppercase focus:ring-2 focus:ring-blue-500 transition-all">
             </div>
         </div>
 
         <div id="loadingState" class="text-center py-20">
             <div class="animate-spin h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4 rounded-full"></div>
-            <p class="text-slate-500 text-xs font-bold uppercase">Syncing database...</p>
+            <p class="text-slate-500 text-xs font-bold uppercase tracking-widest">Fetching Data...</p>
         </div>
 
         <div id="tableContainer" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table id="materialsTable" class="w-full text-left border-collapse">
-                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest">
-                        <tr class="header-row">
-                            <th id="selectHeader" class="hidden px-4 py-4 w-12 no-print"></th>
-                            <th class="px-6 py-4 cursor-pointer hover:bg-slate-100 transition" onclick="handleSort('name')">Material</th>
-                            <th class="px-6 py-4 cursor-pointer hover:bg-slate-100 transition" onclick="handleSort('brand')">Brand</th>
-                            <th class="px-6 py-4 cursor-pointer hover:bg-slate-100 transition" onclick="handleSort('supplier')">Supplier</th>
-                            <th class="px-6 py-4 text-right cursor-pointer hover:bg-slate-100 transition" onclick="handleSort('price')">Price</th>
-                            <th class="admin-only hidden px-6 py-4 text-right no-print">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="materialsTableBody" class="divide-y divide-slate-100 text-xs font-medium"></tbody>
-                </table>
-            </div>
+            <table id="materialsTable" class="w-full text-left border-collapse">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                    <tr class="header-row">
+                        <th id="selectHeader" class="hidden px-4 py-4 w-12 no-print"></th>
+                        <th class="px-6 py-4 cursor-pointer hover:bg-slate-100" onclick="handleSort('name')">Material</th>
+                        <th class="px-6 py-4 cursor-pointer hover:bg-slate-100" onclick="handleSort('brand')">Brand</th>
+                        <th class="px-6 py-4 cursor-pointer hover:bg-slate-100" onclick="handleSort('supplier')">Supplier</th>
+                        <th class="px-6 py-4 text-right cursor-pointer hover:bg-slate-100" onclick="handleSort('price')">Price</th>
+                        <th class="admin-only hidden px-6 py-4 text-right no-print">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="materialsTableBody" class="divide-y divide-slate-100 text-xs font-medium"></tbody>
+            </table>
         </div>
     </main>
 
     <!-- Admin Login Modal -->
     <div id="loginModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
-        <div class="modal-content bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl">
+        <div class="modal-content bg-white p-6 rounded-xl w-full max-sm shadow-2xl">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-black uppercase">Admin access</h3>
-                <button onclick="closeModal('loginModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+                <button onclick="closeModal('loginModal')" class="text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
-            <!-- Wrapped in form to handle Enter key automatically -->
-            <form id="loginForm" onsubmit="event.preventDefault(); submitLogin();">
-                <input type="password" id="loginPassword" placeholder="PASSWORD" class="w-full p-2.5 border border-slate-200 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 outline-none uppercase text-xs">
-                <div id="loginError" class="hidden text-red-500 text-[10px] mb-4 font-bold uppercase">Invalid password</div>
+            <form onsubmit="event.preventDefault(); submitLogin();">
+                <input type="password" id="loginPassword" placeholder="PASSWORD" class="w-full p-2.5 border border-slate-200 rounded-lg mb-4 uppercase text-xs outline-none focus:ring-2 focus:ring-blue-500">
                 <button type="submit" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold uppercase text-xs hover:bg-blue-700 transition">Login</button>
             </form>
         </div>
     </div>
 
-    <!-- Item Add/Edit Modal -->
+    <!-- Item Modal -->
     <div id="itemModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
         <div class="modal-content bg-white p-6 rounded-xl w-full max-w-md shadow-2xl">
             <div class="flex justify-between items-center mb-6">
                 <h3 id="modalTitle" class="text-xl font-black uppercase">Material Info</h3>
-                <button onclick="closeModal('itemModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+                <button onclick="closeModal('itemModal')" class="text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <form id="itemForm" class="space-y-4">
                 <input type="hidden" id="itemId">
-                <div>
-                    <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Description</label>
-                    <input type="text" id="itemName" class="w-full p-2 border border-slate-200 rounded-lg uppercase text-xs" required>
+                <input type="text" id="itemName" placeholder="DESCRIPTION" class="w-full p-2 border border-slate-200 rounded-lg uppercase text-xs" required>
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="text" id="itemBrand" placeholder="BRAND" class="w-full p-2 border border-slate-200 rounded-lg uppercase text-xs">
+                    <input type="text" id="itemSupplier" placeholder="SUPPLIER" class="w-full p-2 border border-slate-200 rounded-lg uppercase text-xs">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Brand</label>
-                        <input type="text" id="itemBrand" class="w-full p-2 border border-slate-200 rounded-lg uppercase text-xs">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Supplier</label>
-                        <input type="text" id="itemSupplier" class="w-full p-2 border border-slate-200 rounded-lg uppercase text-xs">
-                    </div>
+                    <input type="number" step="0.01" id="itemPrice" placeholder="PRICE" class="w-full p-2 border border-slate-200 rounded-lg text-xs" required>
+                    <input type="text" id="itemUnit" placeholder="UNIT (e.g. PC)" class="w-full p-2 border border-slate-200 rounded-lg uppercase text-xs" required>
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Price (₱)</label>
-                        <input type="number" step="0.01" id="itemPrice" class="w-full p-2 border border-slate-200 rounded-lg text-xs" required>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Unit</label>
-                        <input type="text" id="itemUnit" placeholder="PC, BOX, KG" class="w-full p-2 border border-slate-200 rounded-lg uppercase text-xs" required>
-                    </div>
-                </div>
-                <div id="saveError" class="hidden p-3 bg-red-50 text-red-600 text-[10px] font-bold uppercase rounded-lg"></div>
-                <button type="submit" id="saveBtn" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-black uppercase text-xs hover:bg-blue-700 transition">Save Changes</button>
+                <button type="submit" id="saveBtn" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-black uppercase text-xs hover:bg-blue-700 transition mt-4">Save Changes</button>
             </form>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-        import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, getDocs, serverTimestamp, query } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDhflO6H-PJFOu4Kk_9nHaly_IJ8wjZpz0",
-            authDomain: "dlvpricelist.firebaseapp.com",
-            projectId: "dlvpricelist",
-            storageBucket: "dlvpricelist.firebasestorage.app",
-            messagingSenderId: "1078801309438",
-            appId: "1:1078801309438:web:deef9d83586add727ecfaf"
-        };
-
+        const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = 'dlv-v1';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'dlv-v1';
 
         let items = [];
         let selectedIds = new Set();
         let isAdmin = false;
         let isSelectionMode = false;
         let sortConfig = { key: 'name', direction: 'asc' };
+        let currentUser = null;
+
+        // "Fetch Once" strategy to minimize Daily Read Quota
+        const refreshData = async () => {
+            if (!currentUser) return;
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('tableContainer').classList.add('hidden');
+            
+            try {
+                const materialsRef = collection(db, 'artifacts', appId, 'public', 'data', 'materials');
+                const snap = await getDocs(materialsRef);
+                items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                render();
+            } catch (err) {
+                console.error("Fetch error:", err);
+            } finally {
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('tableContainer').classList.remove('hidden');
+            }
+        };
+
+        const initAuth = async () => {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            if (user) refreshData();
+            else initAuth();
+        });
 
         window.openModal = (id, mode = 'add') => {
             document.getElementById(id).classList.add('active');
-            if (id === 'itemModal') {
-                document.getElementById('saveError').classList.add('hidden');
-                if (mode === 'add') {
-                    document.getElementById('itemForm').reset();
-                    document.getElementById('itemId').value = "";
-                    document.getElementById('modalTitle').textContent = "Add Material";
-                }
-            } else if (id === 'loginModal') {
-                document.getElementById('loginPassword').value = "";
-                document.getElementById('loginError').classList.add('hidden');
-                // Focus the password field
-                setTimeout(() => document.getElementById('loginPassword').focus(), 100);
+            if (id === 'itemModal' && mode === 'add') {
+                document.getElementById('itemForm').reset();
+                document.getElementById('itemId').value = "";
+                document.getElementById('modalTitle').textContent = "Add Material";
             }
         };
 
@@ -231,8 +199,6 @@
                 document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
                 closeModal('loginModal');
                 render();
-            } else {
-                document.getElementById('loginError').classList.remove('hidden');
             }
         };
 
@@ -243,9 +209,7 @@
             document.getElementById('selectionLabel').textContent = isSelectionMode ? "Exit Selection" : "Select Items";
             document.getElementById('selectionInfo').classList.toggle('hidden', !isSelectionMode);
             document.getElementById('selectHeader').classList.toggle('hidden', !isSelectionMode);
-            document.getElementById('selectionToggle').classList.toggle('bg-blue-600', isSelectionMode);
-            document.getElementById('selectionToggle').classList.toggle('text-white', isSelectionMode);
-            if (!isSelectionMode) clearSelection();
+            if (!isSelectionMode) selectedIds.clear();
             render();
         };
 
@@ -264,7 +228,7 @@
 
         window.selectAllVisible = () => {
             const term = document.getElementById('searchInput').value.toLowerCase();
-            items.filter(i => (i.name||'').toLowerCase().includes(term)).forEach(i => selectedIds.add(i.id));
+            items.filter(i => (i.name || '').toLowerCase().includes(term)).forEach(i => selectedIds.add(i.id));
             document.getElementById('selectedCount').textContent = selectedIds.size;
             render();
         };
@@ -294,7 +258,11 @@
         };
 
         window.deleteItem = async (id) => {
-            if (confirm('DELETE THIS MATERIAL?')) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
+            if (!confirm('Delete this material?')) return;
+            // Local update first for speed
+            items = items.filter(i => i.id !== id);
+            render();
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
         };
 
         const render = () => {
@@ -341,36 +309,14 @@
                 </tr>
             `).join('');
             
-            document.getElementById('tableContainer').classList.remove('hidden');
-            document.getElementById('loadingState').classList.add('hidden');
             lucide.createIcons();
         };
 
-        const start = async () => {
-            try {
-                await signInAnonymously(auth);
-                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), (snap) => {
-                    items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    render();
-                }, (err) => {
-                    console.error("Firestore error:", err);
-                    document.getElementById('connectionError').classList.remove('hidden');
-                    document.getElementById('errorMsg').textContent = "Database sync failed.";
-                });
-            } catch (e) { console.error(e); }
-        };
-        start();
-
-        // Form submission handler for material items
         document.getElementById('itemForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const saveBtn = document.getElementById('saveBtn');
-            const errorEl = document.getElementById('saveError');
-            
             saveBtn.disabled = true;
-            saveBtn.textContent = "SAVING...";
-            errorEl.classList.add('hidden');
-
+            
             const id = document.getElementById('itemId').value;
             const data = {
                 name: document.getElementById('itemName').value,
@@ -384,21 +330,20 @@
             try {
                 if (id) {
                     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data);
+                    const idx = items.findIndex(i => i.id === id);
+                    items[idx] = { ...items[idx], ...data };
                 } else {
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), data);
+                    const docRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), data);
+                    items.push({ id: docRef.id, ...data });
                 }
+                render();
                 closeModal('itemModal');
-            } catch (err) {
-                console.error("Save error:", err);
-                errorEl.textContent = "Error saving: " + err.message;
-                errorEl.classList.remove('hidden');
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.textContent = "SAVE CHANGES";
-            }
+            } catch (err) { alert(err.message); }
+            finally { saveBtn.disabled = false; }
         });
 
         document.getElementById('searchInput').oninput = render;
+        window.refreshData = refreshData;
         lucide.createIcons();
     </script>
 </body>
