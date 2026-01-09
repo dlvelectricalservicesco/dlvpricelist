@@ -16,7 +16,14 @@
         .selected-row { background-color: #f0f7ff !important; }
         .price-grid { display: grid; grid-template-columns: 14px 1fr 40px; align-items: baseline; gap: 2px; width: 160px; margin-left: auto; }
         .price-number { text-align: right; font-variant-numeric: tabular-nums; }
-        @media print { .no-print { display: none !important; } #tableContainer { box-shadow: none; border: none; } .print-only-selected tr:not(.selected-row):not(.header-row) { display: none !important; } body { background-color: white; } main { padding: 0; max-width: 100%; } .px-6 { padding-left: 1rem; padding-right: 1rem; } }
+        @media print { 
+            .no-print { display: none !important; } 
+            #tableContainer { box-shadow: none; border: none; } 
+            .print-only-selected tr:not(.selected-row):not(.header-row) { display: none !important; } 
+            body { background-color: white; } 
+            main { padding: 0; max-width: 100%; } 
+            .px-6 { padding-left: 1rem; padding-right: 1rem; } 
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen">
@@ -145,11 +152,12 @@
         let isSelectionMode = false;
         let sortConfig = { key: 'name', direction: 'asc' };
 
-        // Optimization: Gamit ang Fetch Once (getDocs) imbes na onSnapshot (Real-time)
-        // Makakatipid ito sa "Read" counts dahil kukunin lang ang data pag-load ng page
         const refreshData = async () => {
-            document.getElementById('loadingState').classList.remove('hidden');
-            document.getElementById('tableContainer').classList.add('hidden');
+            const loadingEl = document.getElementById('loadingState');
+            const tableEl = document.getElementById('tableContainer');
+            
+            loadingEl.classList.remove('hidden');
+            tableEl.classList.add('hidden');
             
             try {
                 const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'materials'));
@@ -159,7 +167,7 @@
             } catch (err) {
                 console.error("Fetch error:", err);
             } finally {
-                document.getElementById('loadingState').classList.add('hidden');
+                loadingEl.classList.add('hidden');
             }
         };
 
@@ -207,6 +215,32 @@
             render();
         };
 
+        window.clearSelection = () => {
+            selectedIds.clear();
+            document.getElementById('selectedCount').textContent = "0";
+            render();
+        };
+
+        window.selectAllVisible = () => {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            items.filter(i => 
+                (i.name || '').toLowerCase().includes(term) || 
+                (i.brand || '').toLowerCase().includes(term)
+            ).forEach(i => selectedIds.add(i.id));
+            document.getElementById('selectedCount').textContent = selectedIds.size;
+            render();
+        };
+
+        window.handlePrint = () => {
+            const table = document.getElementById('materialsTable');
+            if (selectedIds.size > 0) {
+                table.classList.add('print-only-selected');
+            } else {
+                table.classList.remove('print-only-selected');
+            }
+            window.print();
+        };
+
         window.handleSort = (key) => {
             sortConfig.direction = (sortConfig.key === key && sortConfig.direction === 'asc') ? 'desc' : 'asc';
             sortConfig.key = key;
@@ -226,10 +260,8 @@
 
         window.deleteItem = async (id) => {
             if (!confirm('Delete this item?')) return;
-            // Optimization: Delete from local state first for instant UI response
             items = items.filter(i => i.id !== id);
             render();
-            // Then sync to DB
             await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
         };
 
@@ -292,7 +324,6 @@
             try {
                 if (id) {
                     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data);
-                    // Update local state to avoid re-fetching
                     const idx = items.findIndex(i => i.id === id);
                     items[idx] = { ...items[idx], ...data };
                 } else {
