@@ -240,7 +240,7 @@
         let sortConfig = { key: 'name', direction: 'asc' };
         let currentUser = null;
 
-        // --- Auth Listener (Rule 3) ---
+        // --- Auth Listener ---
         onAuthStateChanged(auth, (user) => {
             currentUser = user;
             if (user) {
@@ -288,9 +288,13 @@
             }
         };
 
-        // --- EXCEL BULK UPLOAD LOGIC ---
+        // --- UPDATED EXCEL BULK UPLOAD LOGIC ---
         window.handleBulkUpload = async () => {
-            if (!currentUser) return;
+            if (!currentUser) {
+                alert("Mangyaring mag-login muna.");
+                return;
+            }
+            
             const fileInput = document.getElementById('excelFile');
             const file = fileInput.files[0];
             const startBtn = document.getElementById('startBulkBtn');
@@ -321,32 +325,44 @@
                     if (jsonData.length === 0) throw new Error("Walang data na nakita sa file.");
 
                     let uploadedCount = 0;
+                    // Rule 1: Use strict path
                     const materialsRef = collection(db, 'artifacts', appId, 'public', 'data', 'materials');
 
                     for (const row of jsonData) {
+                        // Flexible column mapping: naghahanap ng variations ng pangalan
+                        const name = row.Material || row.material || row.Description || row.description || row.Item || row.item || "";
+                        const brand = row.Brand || row.brand || "";
+                        const supplier = row.Supplier || row.supplier || "";
+                        const priceRaw = row.Price || row.price || row['Unit Price'] || row['Unit Cost'] || row.Amount || row.Cost || 0;
+                        const unit = row.Unit || row.unit || row.UOM || "PC";
+
                         const materialData = {
-                            name: (row.Material || row.material || row.Description || "").toString().trim(),
-                            brand: (row.Brand || row.brand || "").toString().trim(),
-                            supplier: (row.Supplier || row.supplier || "").toString().trim(),
-                            price: parseFloat(row.Price || row.price || 0),
-                            unit: (row.Unit || row.unit || "PC").toString().trim(),
+                            name: name.toString().trim(),
+                            brand: brand.toString().trim(),
+                            supplier: supplier.toString().trim(),
+                            price: parseFloat(priceRaw) || 0,
+                            unit: unit.toString().trim().toUpperCase(),
                             updatedAt: serverTimestamp()
                         };
 
+                        // Laktawan ang mga walang pangalan
                         if (!materialData.name) continue;
 
-                        await addDoc(materialsRef, materialData);
-                        
-                        uploadedCount++;
-                        const percent = Math.round((uploadedCount / jsonData.length) * 100);
-                        progressBar.style.width = percent + "%";
-                        progressText.textContent = `Uploading: ${uploadedCount} of ${jsonData.length}`;
+                        try {
+                            await addDoc(materialsRef, materialData);
+                            uploadedCount++;
+                            const percent = Math.round((uploadedCount / jsonData.length) * 100);
+                            progressBar.style.width = percent + "%";
+                            progressText.textContent = `Uploading: ${uploadedCount} of ${jsonData.length}`;
+                        } catch (docErr) {
+                            console.error("Error saving row:", materialData, docErr);
+                        }
                     }
 
                     alert(`Matagumpay na na-upload ang ${uploadedCount} items!`);
                     closeModal('bulkModal');
                 } catch (err) {
-                    console.error(err);
+                    console.error("Bulk process error:", err);
                     errorEl.textContent = "Error: " + err.message;
                     errorEl.classList.remove('hidden');
                 } finally {
