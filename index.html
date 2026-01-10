@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DLV Materials Tracker</title>
+    <title>DLV Materials Pricelist</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -15,26 +14,7 @@
         .modal-content { transform: scale(0.98); transition: transform 0.2s ease-in-out; }
         .modal.active .modal-content { transform: scale(1); }
         .selected-row { background-color: #f0f7ff !important; }
-        
-        .price-grid { display: grid; grid-template-columns: 12px 1fr 35px; align-items: baseline; gap: 1px; width: 100%; max-width: 140px; margin-left: auto; }
-        .price-number { text-align: right; font-variant-numeric: tabular-nums; }
-
-        /* Smooth scrolling for mobile */
-        .overflow-x-auto { -webkit-overflow-scrolling: touch; }
-        .overflow-x-auto::-webkit-scrollbar { height: 4px; }
-        .overflow-x-auto::-webkit-scrollbar-track { background: #f1f1f1; }
-        .overflow-x-auto::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-
-        /* Hardware acceleration for smoother lists */
-        tr { transform: translateZ(0); }
-
-        @media print { 
-            .no-print { display: none !important; } 
-            #tableContainer { box-shadow: none; border: none; } 
-            .print-only-selected tr:not(.selected-row):not(.header-row) { display: none !important; } 
-            body { background-color: white; } 
-            main { padding: 0; max-width: 100%; } 
-        }
+        @media print { .no-print { display: none !important; } }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen">
@@ -43,231 +23,268 @@
         <div class="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
             <div class="flex items-center gap-2">
                 <div class="bg-blue-600 p-1.5 rounded-lg text-white"><i data-lucide="package" class="w-5 h-5"></i></div>
-                <h1 class="text-sm sm:text-lg font-bold uppercase tracking-tight">DLV Materials</h1>
+                <h1 class="text-sm sm:text-lg font-bold uppercase tracking-tight">DLV Materials Tracker</h1>
             </div>
-            
             <div class="flex items-center gap-1 sm:gap-3">
                 <button onclick="refreshData()" class="p-2 text-slate-500 hover:text-blue-600 transition" title="Refresh Data">
                     <i data-lucide="refresh-cw" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                 </button>
                 <div id="adminControls" class="hidden flex items-center gap-1 sm:gap-3">
-                    <input type="file" id="excelInput" accept=".xlsx, .xls" class="hidden" onchange="handleExcelUpload(event)">
-                    <button onclick="document.getElementById('excelInput').click()" class="hidden sm:flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition">
-                        <i data-lucide="file-up" class="w-4 h-4"></i><span class="uppercase text-xs">Import</span>
-                    </button>
-                    <button id="selectionToggle" onclick="toggleSelectionMode()" class="p-2 sm:px-3 sm:py-2 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition">
-                        <i data-lucide="check-square" class="w-4 h-4 sm:hidden"></i>
-                        <span id="selectionLabel" class="hidden sm:inline uppercase text-xs font-bold">Select</span>
-                    </button>
-                    <button onclick="handlePrint()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200" title="Print List"><i data-lucide="printer" class="w-4 h-4 sm:w-5 sm:h-5"></i></button>
-                    <button onclick="openModal('itemModal', 'add')" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-[10px] sm:text-xs font-bold uppercase hover:bg-blue-700 transition">Add</button>
-                    <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-red-500 transition"><i data-lucide="log-out" class="w-4 h-4 sm:w-5 sm:h-5"></i></button>
+                    <button onclick="openModal('itemModal')" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-[10px] sm:text-xs font-bold uppercase hover:bg-blue-700 transition">Magdagdag</button>
+                    <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-red-500 transition"><i data-lucide="log-out" class="w-4 h-4"></i></button>
                 </div>
-                <button id="loginBtn" onclick="openModal('loginModal')" class="text-[10px] sm:text-xs font-bold uppercase text-slate-600 hover:text-blue-600 px-2">Login</button>
+                <button id="loginBtn" onclick="openModal('loginModal')" class="text-[10px] sm:text-xs font-bold uppercase text-slate-600 hover:text-blue-600 px-2">Admin Login</button>
             </div>
         </div>
     </header>
 
     <main class="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
-        <div id="importStatus" class="hidden no-print mb-4 p-3 bg-green-50 border border-green-100 rounded-lg flex justify-between items-center">
-            <p id="importMessage" class="text-[10px] text-green-700 font-bold uppercase"></p>
-            <button onclick="this.parentElement.classList.add('hidden')" class="text-[10px] text-green-600 font-bold uppercase underline">Dismiss</button>
-        </div>
-
-        <div id="selectionInfo" class="hidden no-print mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center">
-            <p class="text-[10px] text-blue-700 font-bold uppercase"><span id="selectedCount">0</span> selected.</p>
-            <div class="flex gap-3">
-                <button onclick="clearSelection()" class="text-[10px] text-blue-600 font-bold uppercase underline">Clear</button>
-                <button onclick="selectAllVisible()" class="text-[10px] text-blue-600 font-bold uppercase underline">All</button>
+        <div id="messageBoard" class="mb-6 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-4 sm:p-6 shadow-lg text-white relative overflow-hidden">
+            <div class="relative z-10">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-[10px] font-black uppercase tracking-widest bg-white/20 px-2 py-0.5 rounded">Anunsyo</span>
+                    <button id="editMessageBtn" onclick="openModal('messageModal')" class="hidden bg-white/20 hover:bg-white/30 p-1.5 rounded-lg transition">
+                        <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+                <h2 id="boardTitle" class="text-lg sm:text-xl font-black uppercase mb-1">Pinakabagong Update</h2>
+                <p id="boardContent" class="text-sm text-blue-50 font-medium leading-relaxed">Kinukuha ang impormasyon...</p>
+                <div id="boardDate" class="mt-4 text-[9px] font-bold uppercase tracking-tighter opacity-70 flex items-center gap-1">
+                    <i data-lucide="calendar" class="w-3 h-3"></i>
+                    <span id="updateDateLabel">Huling update: --</span>
+                </div>
             </div>
         </div>
 
         <div class="mb-4 no-print">
             <div class="relative w-full">
                 <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
-                <input type="text" id="searchInput" placeholder="SEARCH MATERIALS OR #ID..." class="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl outline-none text-sm uppercase shadow-sm focus:border-blue-500 transition-all bg-white">
+                <input type="text" id="searchInput" placeholder="Maghanap ng materyales..." class="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl outline-none text-sm shadow-sm focus:border-blue-500 transition-all bg-white">
             </div>
         </div>
 
         <div id="loadingState" class="text-center py-20">
             <div class="animate-spin h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4 rounded-full"></div>
-            <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Loading...</p>
+            <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Kumokonekta sa Database...</p>
         </div>
 
         <div id="tableContainer" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="overflow-x-auto w-full">
-                <table id="materialsTable" class="w-full text-left border-collapse min-w-[600px] sm:min-w-full">
+                <table id="materialsTable" class="w-full text-left border-collapse min-w-[600px]">
                     <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest">
-                        <tr class="header-row">
-                            <th id="selectHeader" class="hidden px-3 py-4 w-10 no-print"></th>
-                            <th class="px-4 py-4 w-16 cursor-pointer" onclick="handleSort('idNo')">ID</th>
-                            <th class="px-4 py-4 cursor-pointer" onclick="handleSort('name')">Material</th>
-                            <th class="hidden md:table-cell px-4 py-4 cursor-pointer" onclick="handleSort('brand')">Brand</th>
-                            <th class="hidden lg:table-cell px-4 py-4 cursor-pointer" onclick="handleSort('supplier')">Supplier</th>
-                            <th class="px-4 py-4 text-right cursor-pointer" onclick="handleSort('price')">Price</th>
-                            <th class="admin-only-header hidden px-4 py-4 text-right no-print">Actions</th>
+                        <tr>
+                            <th class="px-4 py-4 w-16">ID</th>
+                            <th class="px-4 py-4">Materyales</th>
+                            <th class="px-4 py-4 text-right">Presyo</th>
+                            <th class="admin-only-header hidden px-4 py-4 text-right no-print">Aksyon</th>
                         </tr>
                     </thead>
                     <tbody id="materialsTableBody" class="divide-y divide-slate-100 text-[11px] sm:text-xs font-medium"></tbody>
                 </table>
+            </div>
+            <div id="emptyState" class="hidden py-20 text-center text-slate-400">
+                <i data-lucide="package-search" class="w-12 h-12 mx-auto mb-4 opacity-20"></i>
+                <p class="text-xs font-bold uppercase tracking-widest">Walang nakitang items</p>
+                <p class="text-[10px] mt-2">Siguraduhin na ang Firebase Rules ay naka-publish.</p>
             </div>
         </div>
     </main>
 
     <!-- Modals -->
     <div id="loginModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-        <div class="modal-content bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-black uppercase">Admin access</h3>
-                <button onclick="closeModal('loginModal')" class="text-slate-400 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <div class="modal-content bg-white p-6 rounded-xl w-full max-w-sm">
+            <h3 class="text-lg font-black uppercase mb-4">Admin Access</h3>
+            <input type="password" id="loginPassword" placeholder="PASSWORD" class="w-full p-3 border border-slate-200 rounded-lg mb-4 text-xs outline-none">
+            <button onclick="submitLogin()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold uppercase text-xs">Login</button>
+            <button onclick="closeModal('loginModal')" class="w-full text-slate-400 text-[10px] mt-2 uppercase font-bold">Isara</button>
+        </div>
+    </div>
+
+    <div id="messageModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div class="modal-content bg-white p-6 rounded-xl w-full max-w-sm">
+            <h3 class="text-lg font-black uppercase mb-4">I-edit ang Anunsyo</h3>
+            <div class="space-y-4">
+                <input type="text" id="inputBoardTitle" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs" placeholder="PAMAGAT">
+                <textarea id="inputBoardContent" rows="3" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs" placeholder="MENSAHE"></textarea>
+                <button onclick="saveBoardMessage()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold uppercase text-xs">I-save</button>
+                <button onclick="closeModal('messageModal')" class="w-full text-slate-400 text-xs font-bold py-1">KANSELAHIN</button>
             </div>
-            <form onsubmit="event.preventDefault(); submitLogin();">
-                <input type="password" id="loginPassword" placeholder="PASSWORD" class="w-full p-3 border border-slate-200 rounded-lg mb-4 uppercase text-xs outline-none focus:border-blue-500">
-                <button type="submit" id="loginSubmitBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold uppercase text-xs">Login</button>
-            </form>
         </div>
     </div>
 
     <div id="itemModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-        <div class="modal-content bg-white p-6 rounded-xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-6">
-                <h3 id="modalTitle" class="text-lg font-black uppercase">Material Details</h3>
-                <button onclick="closeModal('itemModal')" class="text-slate-400 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
-            </div>
+        <div class="modal-content bg-white p-6 rounded-xl w-full max-w-md">
+            <h3 class="text-lg font-black uppercase mb-4">Detalye ng Materyales</h3>
             <form id="itemForm" class="space-y-4">
                 <input type="hidden" id="itemId">
-                <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <p class="text-[9px] text-slate-400 font-bold uppercase mb-1">Assigned ID</p>
-                    <p id="displayIdNo" class="text-xs font-mono font-bold text-slate-700">NEW</p>
-                </div>
-                <div>
-                    <label class="text-[9px] font-bold text-slate-400 uppercase ml-1">Description</label>
-                    <input type="text" id="itemName" placeholder="ITEM NAME" class="w-full p-2.5 border border-slate-200 rounded-lg uppercase text-xs" required>
+                <input type="text" id="itemName" placeholder="PANGALAN NG ITEM" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs uppercase" required>
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="text" id="itemBrand" placeholder="TATAK (BRAND)" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs uppercase">
+                    <input type="number" step="0.01" id="itemPrice" placeholder="PRESYO" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs" required>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
-                    <input type="text" id="itemBrand" placeholder="BRAND" class="w-full p-2.5 border border-slate-200 rounded-lg uppercase text-xs">
-                    <input type="text" id="itemSupplier" placeholder="SUPPLIER" class="w-full p-2.5 border border-slate-200 rounded-lg uppercase text-xs">
+                    <input type="text" id="itemUnit" placeholder="YUNIT (e.g. PC, ROLL)" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs uppercase" required>
+                    <input type="text" id="itemSupplier" placeholder="SUPPLIER" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs uppercase">
                 </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <input type="number" step="0.01" id="itemPrice" placeholder="PRICE" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs" required>
-                    <input type="text" id="itemUnit" placeholder="UNIT" class="w-full p-2.5 border border-slate-200 rounded-lg uppercase text-xs" required>
-                </div>
-                <button type="submit" id="saveBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-black uppercase text-xs shadow-lg shadow-blue-200 active:scale-[0.98] transition-transform mt-2">Save Material</button>
+                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold uppercase text-xs">I-save ang Materyales</button>
+                <button type="button" onclick="closeModal('itemModal')" class="w-full text-slate-400 text-xs uppercase font-bold py-2">Kanselahin</button>
             </form>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, getDocs, serverTimestamp, query } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, serverTimestamp, query } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDhflO6H-PJFOu4Kk_9nHaly_IJ8wjZpz0",
-            authDomain: "dlvpricelist.firebaseapp.com",
-            projectId: "dlvpricelist",
-            storageBucket: "dlvpricelist.firebasestorage.app",
-            messagingSenderId: "1078801309438",
-            appId: "1:1078801309438:web:deef9d83586add727ecfaf"
-        };
-
+        const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = 'dlv-v1';
+        
+        // Permanenteng ID para sa data folder
+        const appId = 'dlv-materials-master'; 
 
         let items = [];
-        let selectedIds = new Set();
         let isAdmin = false;
-        let isSelectionMode = false;
-        let sortConfig = { key: 'name', direction: 'asc' };
-        let searchTimeout;
+        let currentUser = null;
+
+        const fetchBoardMessage = async () => {
+            if (!currentUser) return;
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'messageBoard');
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    document.getElementById('boardTitle').textContent = data.title || "LATEST UPDATES";
+                    document.getElementById('boardContent').textContent = data.content || "Welcome to DLV Tracker.";
+                    if (data.updatedAt) document.getElementById('updateDateLabel').textContent = `Huling update: ${data.updatedAt.toDate().toLocaleDateString()}`;
+                }
+            } catch (err) { console.error("Error fetching board:", err); }
+        };
 
         const refreshData = async () => {
+            if (!currentUser) {
+                console.log("Waiting for authentication...");
+                return;
+            }
+
             const loadingEl = document.getElementById('loadingState');
             const tableEl = document.getElementById('tableContainer');
+            const emptyEl = document.getElementById('emptyState');
+            
             loadingEl.classList.remove('hidden');
             tableEl.classList.add('hidden');
+            emptyEl.classList.add('hidden');
+
             try {
+                await fetchBoardMessage();
                 const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'materials'));
                 const snap = await getDocs(q);
                 items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                render();
-            } catch (err) { console.error(err); }
-            finally { loadingEl.classList.add('hidden'); }
-        };
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) refreshData();
-            else signInAnonymously(auth);
-        });
-
-        const getNextIdNo = () => {
-            const validIds = items.map(i => parseInt(i.idNo)).filter(n => !isNaN(n));
-            return validIds.length > 0 ? Math.max(...validIds) + 1 : 1;
-        };
-
-        window.openModal = (id, mode = 'add') => {
-            const modal = document.getElementById(id);
-            modal.classList.add('active');
-            if (id === 'itemModal' && mode === 'add') {
-                document.getElementById('itemForm').reset();
-                document.getElementById('itemId').value = "";
-                document.getElementById('displayIdNo').textContent = "NEW ID #" + getNextIdNo();
-            } else if (id === 'loginModal') {
-                setTimeout(() => document.getElementById('loginPassword').focus(), 300);
+                if (items.length === 0) {
+                    emptyEl.classList.remove('hidden');
+                    tableEl.classList.remove('hidden');
+                } else {
+                    render();
+                }
+            } catch (err) {
+                console.error("Database error:", err);
+                loadingEl.innerHTML = `
+                    <div class="text-red-500 p-4 bg-red-50 rounded-lg inline-block">
+                        <p class="font-bold uppercase text-xs">Permission Error</p>
+                        <p class="text-[10px] mt-1 italic">Pakisigurado na ang Firebase Rules ay tama para sa appId: ${appId}</p>
+                    </div>
+                `;
+            } finally {
+                loadingEl.classList.add('hidden');
             }
         };
 
-        window.closeModal = (id) => document.getElementById(id).classList.remove('active');
+        window.saveBoardMessage = async () => {
+            if (!isAdmin) return;
+            const title = document.getElementById('inputBoardTitle').value.toUpperCase();
+            const content = document.getElementById('inputBoardContent').value.toUpperCase();
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'messageBoard'), {
+                    title, content, updatedAt: serverTimestamp()
+                });
+                refreshData();
+                closeModal('messageModal');
+            } catch (err) { alert("Save error: " + err.message); }
+        };
+
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.error("Auth error:", err);
+            }
+        };
+
+        onAuthStateChanged(auth, (user) => { 
+            currentUser = user;
+            if (user) {
+                console.log("User authenticated:", user.uid);
+                refreshData(); 
+            }
+        });
+        
+        initAuth();
 
         window.submitLogin = () => {
-            const pass = document.getElementById('loginPassword').value;
-            const btn = document.getElementById('loginSubmitBtn');
-            
-            if (pass === 'admin') {
+            if (document.getElementById('loginPassword').value === 'admin') {
                 isAdmin = true;
-                // Instant UI change for elements outside the table
                 document.getElementById('adminControls').classList.remove('hidden');
                 document.getElementById('loginBtn').classList.add('hidden');
-                
-                // Close modal immediately to improve perceived speed
-                closeModal('loginModal');
-                
-                // Show admin column headers
+                document.getElementById('editMessageBtn').classList.remove('hidden');
                 document.querySelectorAll('.admin-only-header').forEach(el => el.classList.remove('hidden'));
-                
-                // Use requestIdleCallback or a short timeout to defer the heavy render
-                // so the modal closes smoothly first
-                setTimeout(() => {
-                    render();
-                }, 100);
+                closeModal('loginModal');
+                render();
             } else {
-                btn.classList.add('bg-red-500');
-                setTimeout(() => btn.classList.remove('bg-red-500'), 500);
+                alert("Maling password!");
             }
         };
 
-        window.toggleSelectionMode = () => {
-            isSelectionMode = !isSelectionMode;
-            document.getElementById('selectionInfo').classList.toggle('hidden', !isSelectionMode);
-            document.getElementById('selectHeader').classList.toggle('hidden', !isSelectionMode);
-            if (!isSelectionMode) selectedIds.clear();
-            render();
-        };
+        window.openModal = (id) => document.getElementById(id).classList.add('active');
+        window.closeModal = (id) => document.getElementById(id).classList.remove('active');
 
-        window.toggleRowSelection = (id) => {
-            if (!isSelectionMode) return;
-            selectedIds.has(id) ? selectedIds.delete(id) : selectedIds.add(id);
-            document.getElementById('selectedCount').textContent = selectedIds.size;
-            render();
-        };
+        const render = () => {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = items.filter(i => 
+                (i.name || '').toLowerCase().includes(term) || (i.idNo || '').toString().includes(term)
+            ).sort((a,b) => (a.idNo || 0) - (b.idNo || 0));
 
-        window.clearSelection = () => { selectedIds.clear(); render(); };
-        window.handleSort = (key) => {
-            sortConfig.direction = (sortConfig.key === key && sortConfig.direction === 'asc') ? 'desc' : 'asc';
-            sortConfig.key = key;
-            render();
+            const tableBody = document.getElementById('materialsTableBody');
+            if (filtered.length === 0) {
+                document.getElementById('emptyState').classList.remove('hidden');
+                tableBody.innerHTML = '';
+            } else {
+                document.getElementById('emptyState').classList.add('hidden');
+                tableBody.innerHTML = filtered.map(i => `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-4 py-4 text-blue-600 font-mono font-bold">#${i.idNo || '0'}</td>
+                        <td class="px-4 py-4">
+                            <div class="font-bold text-slate-800 uppercase">${i.name}</div>
+                            <div class="text-[9px] text-slate-400 font-bold uppercase">${i.brand || 'NO BRAND'}</div>
+                        </td>
+                        <td class="px-4 py-4 text-right font-mono font-bold text-blue-700">₱${Number(i.price).toLocaleString()} <span class="text-[8px] text-slate-400">/${i.unit}</span></td>
+                        <td class="admin-only-header ${isAdmin ? '' : 'hidden'} px-4 py-4 text-right">
+                            <div class="flex justify-end gap-2">
+                                <button onclick="editItem('${i.id}')" class="text-slate-400 hover:text-blue-600"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                                <button onclick="deleteItem('${i.id}')" class="text-slate-400 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+            document.getElementById('tableContainer').classList.remove('hidden');
+            lucide.createIcons();
         };
 
         window.editItem = (id) => {
@@ -275,100 +292,49 @@
             document.getElementById('itemId').value = item.id;
             document.getElementById('itemName').value = item.name;
             document.getElementById('itemBrand').value = item.brand || '';
-            document.getElementById('itemSupplier').value = item.supplier || '';
             document.getElementById('itemPrice').value = item.price;
             document.getElementById('itemUnit').value = item.unit;
-            document.getElementById('displayIdNo').textContent = "ID #" + (item.idNo || 0);
-            openModal('itemModal', 'edit');
+            document.getElementById('itemSupplier').value = item.supplier || '';
+            openModal('itemModal');
         };
 
-        const render = () => {
-            requestAnimationFrame(() => {
-                const term = document.getElementById('searchInput').value.toLowerCase();
-                const filtered = items.filter(i => 
-                    (i.name || '').toLowerCase().includes(term) || 
-                    (i.brand || '').toLowerCase().includes(term) ||
-                    (i.idNo || '').toString().includes(term)
-                ).sort((a, b) => {
-                    let v1 = a[sortConfig.key], v2 = b[sortConfig.key];
-                    if (typeof v1 === 'string') { v1 = v1.toLowerCase(); v2 = v2.toLowerCase(); }
-                    return sortConfig.direction === 'asc' ? (v1 > v2 ? 1 : -1) : (v1 < v2 ? 1 : -1);
-                });
-
-                const html = filtered.map((i) => `
-                    <tr onclick="toggleRowSelection('${i.id}')" class="transition-colors ${selectedIds.has(i.id) ? 'selected-row' : 'hover:bg-slate-50'}">
-                        <td class="${isSelectionMode ? '' : 'hidden'} px-3 py-4 no-print">
-                            <div class="w-5 h-5 border-2 rounded flex items-center justify-center ${selectedIds.has(i.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}">
-                                ${selectedIds.has(i.id) ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}
-                            </div>
-                        </td>
-                        <td class="px-4 py-4 text-blue-600 font-mono font-black">#${i.idNo}</td>
-                        <td class="px-4 py-4">
-                            <div class="font-bold text-slate-800 uppercase leading-tight">${i.name}</div>
-                            <div class="md:hidden text-[9px] text-slate-400 font-bold uppercase mt-0.5">${i.brand || ''} ${i.brand && i.supplier ? '•' : ''} ${i.supplier || ''}</div>
-                        </td>
-                        <td class="hidden md:table-cell px-4 py-4 text-slate-500 uppercase font-bold">${i.brand || '-'}</td>
-                        <td class="hidden lg:table-cell px-4 py-4 text-slate-500 uppercase font-bold">${i.supplier || '-'}</td>
-                        <td class="px-4 py-4">
-                            <div class="price-grid">
-                                <span class="text-[9px] font-black text-slate-400">₱</span>
-                                <span class="price-number font-mono font-black text-blue-700 text-[13px]">${Number(i.price).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                                <span class="text-[8px] text-slate-400 font-black uppercase">/${i.unit}</span>
-                            </div>
-                        </td>
-                        <td class="admin-only ${isAdmin ? '' : 'hidden'} px-4 py-4 text-right no-print">
-                            <div class="flex justify-end gap-2">
-                                <button onclick="event.stopPropagation(); editItem('${i.id}')" class="text-slate-400 hover:text-blue-600"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-                                <button onclick="event.stopPropagation(); deleteItem('${i.id}')" class="text-slate-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                            </div>
-                        </td>
-                    </tr>
-                `).join('');
-
-                document.getElementById('materialsTableBody').innerHTML = html;
-                document.getElementById('tableContainer').classList.remove('hidden');
-                lucide.createIcons();
-            });
+        window.deleteItem = async (id) => {
+            if (confirm("Sigurado ka bang nais mong burahin ito?")) {
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
+                    refreshData();
+                } catch (err) { alert(err.message); }
+            }
         };
 
-        // Debounced Search for Performance
-        document.getElementById('searchInput').oninput = () => {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(render, 150);
-        };
-
-        document.getElementById('itemForm').addEventListener('submit', async (e) => {
+        document.getElementById('itemForm').onsubmit = async (e) => {
             e.preventDefault();
-            const saveBtn = document.getElementById('saveBtn');
-            saveBtn.disabled = true;
             const id = document.getElementById('itemId').value;
             const data = {
                 name: document.getElementById('itemName').value.toUpperCase(),
                 brand: document.getElementById('itemBrand').value.toUpperCase(),
                 supplier: document.getElementById('itemSupplier').value.toUpperCase(),
-                price: parseFloat(document.getElementById('itemPrice').value) || 0,
+                price: parseFloat(document.getElementById('itemPrice').value),
                 unit: document.getElementById('itemUnit').value.toUpperCase(),
                 updatedAt: serverTimestamp()
             };
             try {
-                if (id) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data);
-                else { data.idNo = getNextIdNo(); await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), data); }
+                if (id) {
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data);
+                } else {
+                    const nextId = items.length > 0 ? Math.max(...items.map(i => i.idNo || 0)) + 1 : 1;
+                    data.idNo = nextId;
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), data);
+                }
                 refreshData();
                 closeModal('itemModal');
+                document.getElementById('itemForm').reset();
             } catch (err) { alert(err.message); }
-            finally { saveBtn.disabled = false; }
-        });
-
-        window.deleteItem = async (id) => {
-            if (!confirm('Delete item?')) return;
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
-            refreshData();
         };
 
+        document.getElementById('searchInput').oninput = render;
         window.refreshData = refreshData;
         window.handleLogout = () => location.reload();
-        window.handlePrint = () => window.print();
-        lucide.createIcons();
     </script>
 </body>
 </html>
