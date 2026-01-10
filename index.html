@@ -140,12 +140,17 @@
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
         let db, auth;
-        const appId = 'dlv-v1'; // SIGURADUHIN NA ITO RIN ANG NASA FIREBASE RULES
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'dlv-v1'; 
         let items = [];
         let isAdmin = false;
 
         const initFirebase = async () => {
             try {
+                // Safety check para sa __firebase_config
+                if (typeof __firebase_config === 'undefined') {
+                    throw new Error("Firebase configuration is missing from environment.");
+                }
+
                 const config = JSON.parse(__firebase_config);
                 const app = initializeApp(config);
                 auth = getAuth(app);
@@ -165,7 +170,13 @@
                 }
             } catch (err) {
                 console.error("Firebase Init Error:", err);
-                document.getElementById('loadingText').innerHTML = `<span class="text-red-500">System Error: ${err.message}</span>`;
+                document.getElementById('loadingText').innerHTML = `
+                    <div class="bg-red-50 text-red-600 p-4 rounded-xl inline-block text-left max-w-xs">
+                        <p class="font-bold uppercase text-[10px]">System Config Error</p>
+                        <p class="text-[11px] mt-1">${err.message}</p>
+                        <p class="text-[9px] mt-2 opacity-70 italic">Ensure this code is running in the correct environment with Firebase variables enabled.</p>
+                    </div>
+                `;
             }
         };
 
