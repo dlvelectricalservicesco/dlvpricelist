@@ -222,7 +222,8 @@
         let selectedIds = new Set();
         let isAdmin = false;
         let isSelectionMode = false;
-        let sortConfig = { key: 'name', direction: 'asc' };
+        // Updated default sort: Lowest ID (1) at the top
+        let sortConfig = { key: 'idNo', direction: 'asc' }; 
         let searchTimeout;
 
         const fetchBoardMessage = async () => {
@@ -320,7 +321,6 @@
             }
         };
 
-        // EXCEL IMPORT LOGIC
         window.handleExcelUpload = (event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -345,7 +345,6 @@
                             unit: (row.Unit || row.unit || "PC").toString().toUpperCase(),
                             updatedAt: serverTimestamp()
                         };
-                        
                         if (material.name) {
                             await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), material);
                         }
@@ -353,7 +352,7 @@
                     alert("Import completed successfully.");
                     refreshData();
                 }
-                event.target.value = ''; // Reset input
+                event.target.value = '';
             };
             reader.readAsArrayBuffer(file);
         };
@@ -410,7 +409,13 @@
                     (i.idNo || '').toString().includes(term)
                 ).sort((a, b) => {
                     let v1 = a[sortConfig.key], v2 = b[sortConfig.key];
-                    if (typeof v1 === 'string') { v1 = v1.toLowerCase(); v2 = v2.toLowerCase(); }
+                    if (sortConfig.key === 'idNo' || sortConfig.key === 'price') {
+                        v1 = parseFloat(v1) || 0;
+                        v2 = parseFloat(v2) || 0;
+                    } else if (typeof v1 === 'string') { 
+                        v1 = v1.toLowerCase(); 
+                        v2 = v2.toLowerCase(); 
+                    }
                     return sortConfig.direction === 'asc' ? (v1 > v2 ? 1 : -1) : (v1 < v2 ? 1 : -1);
                 });
 
