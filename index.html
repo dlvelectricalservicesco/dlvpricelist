@@ -13,7 +13,6 @@
         .modal.active { opacity: 1; pointer-events: auto; }
         .modal-content { transform: scale(0.98); transition: transform 0.2s ease-in-out; }
         .modal.active .modal-content { transform: scale(1); }
-        .selected-row { background-color: #f0f7ff !important; }
         @media print { .no-print { display: none !important; } }
     </style>
 </head>
@@ -39,6 +38,7 @@
     </header>
 
     <main class="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
+        <!-- Message Board -->
         <div id="messageBoard" class="mb-6 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-4 sm:p-6 shadow-lg text-white relative overflow-hidden">
             <div class="relative z-10">
                 <div class="flex items-center justify-between mb-2">
@@ -56,6 +56,7 @@
             </div>
         </div>
 
+        <!-- Search Bar -->
         <div class="mb-4 no-print">
             <div class="relative w-full">
                 <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
@@ -63,9 +64,10 @@
             </div>
         </div>
 
+        <!-- States -->
         <div id="loadingState" class="text-center py-20">
             <div class="animate-spin h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4 rounded-full"></div>
-            <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Kumokonekta sa Database...</p>
+            <p id="loadingText" class="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Kumokonekta sa Database...</p>
         </div>
 
         <div id="tableContainer" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -85,7 +87,7 @@
             <div id="emptyState" class="hidden py-20 text-center text-slate-400">
                 <i data-lucide="package-search" class="w-12 h-12 mx-auto mb-4 opacity-20"></i>
                 <p class="text-xs font-bold uppercase tracking-widest">Walang nakitang items</p>
-                <p class="text-[10px] mt-2">Siguraduhin na ang Firebase Rules ay naka-publish.</p>
+                <p class="text-[10px] mt-2">Magdagdag ng item gamit ang Admin access.</p>
             </div>
         </div>
     </main>
@@ -135,39 +137,40 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, serverTimestamp, query } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        
-        // Permanenteng ID para sa data folder
-        const appId = 'dlv-materials-master'; 
-
+        let db, auth;
+        const appId = 'dlv-v1'; // SIGURADUHIN NA ITO RIN ANG NASA FIREBASE RULES
         let items = [];
         let isAdmin = false;
-        let currentUser = null;
 
-        const fetchBoardMessage = async () => {
-            if (!currentUser) return;
+        const initFirebase = async () => {
             try {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'messageBoard');
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    document.getElementById('boardTitle').textContent = data.title || "LATEST UPDATES";
-                    document.getElementById('boardContent').textContent = data.content || "Welcome to DLV Tracker.";
-                    if (data.updatedAt) document.getElementById('updateDateLabel').textContent = `Huling update: ${data.updatedAt.toDate().toLocaleDateString()}`;
+                const config = JSON.parse(__firebase_config);
+                const app = initializeApp(config);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        console.log("Authenticated as:", user.uid);
+                        refreshData();
+                    }
+                });
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
                 }
-            } catch (err) { console.error("Error fetching board:", err); }
+            } catch (err) {
+                console.error("Firebase Init Error:", err);
+                document.getElementById('loadingText').innerHTML = `<span class="text-red-500">System Error: ${err.message}</span>`;
+            }
         };
 
         const refreshData = async () => {
-            if (!currentUser) {
-                console.log("Waiting for authentication...");
-                return;
-            }
+            if (!db || !auth.currentUser) return;
 
             const loadingEl = document.getElementById('loadingState');
             const tableEl = document.getElementById('tableContainer');
@@ -178,64 +181,38 @@
             emptyEl.classList.add('hidden');
 
             try {
-                await fetchBoardMessage();
-                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'materials'));
-                const snap = await getDocs(q);
-                items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                // Fetch Board
+                const boardSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'messageBoard'));
+                if (boardSnap.exists()) {
+                    const b = boardSnap.data();
+                    document.getElementById('boardTitle').textContent = b.title || "UPDATE";
+                    document.getElementById('boardContent').textContent = b.content || "";
+                    if (b.updatedAt) document.getElementById('updateDateLabel').textContent = `Huling update: ${b.updatedAt.toDate().toLocaleDateString()}`;
+                }
+
+                // Fetch Materials
+                const matSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'materials'));
+                items = matSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
                 if (items.length === 0) {
                     emptyEl.classList.remove('hidden');
-                    tableEl.classList.remove('hidden');
                 } else {
                     render();
                 }
+                tableEl.classList.remove('hidden');
             } catch (err) {
-                console.error("Database error:", err);
+                console.error("Fetch Error:", err);
                 loadingEl.innerHTML = `
-                    <div class="text-red-500 p-4 bg-red-50 rounded-lg inline-block">
-                        <p class="font-bold uppercase text-xs">Permission Error</p>
-                        <p class="text-[10px] mt-1 italic">Pakisigurado na ang Firebase Rules ay tama para sa appId: ${appId}</p>
+                    <div class="text-red-500 text-[10px] p-4 bg-red-50 rounded-lg inline-block text-left">
+                        <p class="font-bold uppercase">Permission Denied</p>
+                        <p class="mt-1">Pakisuyo i-publish ang bagong Rules sa Firebase Console.</p>
+                        <p class="mt-1 opacity-70">Path: artifacts/${appId}/public/data</p>
                     </div>
                 `;
             } finally {
                 loadingEl.classList.add('hidden');
             }
         };
-
-        window.saveBoardMessage = async () => {
-            if (!isAdmin) return;
-            const title = document.getElementById('inputBoardTitle').value.toUpperCase();
-            const content = document.getElementById('inputBoardContent').value.toUpperCase();
-            try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'messageBoard'), {
-                    title, content, updatedAt: serverTimestamp()
-                });
-                refreshData();
-                closeModal('messageModal');
-            } catch (err) { alert("Save error: " + err.message); }
-        };
-
-        const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (err) {
-                console.error("Auth error:", err);
-            }
-        };
-
-        onAuthStateChanged(auth, (user) => { 
-            currentUser = user;
-            if (user) {
-                console.log("User authenticated:", user.uid);
-                refreshData(); 
-            }
-        });
-        
-        initAuth();
 
         window.submitLogin = () => {
             if (document.getElementById('loginPassword').value === 'admin') {
@@ -246,9 +223,7 @@
                 document.querySelectorAll('.admin-only-header').forEach(el => el.classList.remove('hidden'));
                 closeModal('loginModal');
                 render();
-            } else {
-                alert("Maling password!");
-            }
+            } else { alert("Maling password!"); }
         };
 
         window.openModal = (id) => document.getElementById(id).classList.add('active');
@@ -256,34 +231,24 @@
 
         const render = () => {
             const term = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = items.filter(i => 
-                (i.name || '').toLowerCase().includes(term) || (i.idNo || '').toString().includes(term)
-            ).sort((a,b) => (a.idNo || 0) - (b.idNo || 0));
+            const filtered = items.filter(i => (i.name || '').toLowerCase().includes(term))
+                                  .sort((a,b) => (a.idNo || 0) - (b.idNo || 0));
 
             const tableBody = document.getElementById('materialsTableBody');
-            if (filtered.length === 0) {
-                document.getElementById('emptyState').classList.remove('hidden');
-                tableBody.innerHTML = '';
-            } else {
-                document.getElementById('emptyState').classList.add('hidden');
-                tableBody.innerHTML = filtered.map(i => `
-                    <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="px-4 py-4 text-blue-600 font-mono font-bold">#${i.idNo || '0'}</td>
-                        <td class="px-4 py-4">
-                            <div class="font-bold text-slate-800 uppercase">${i.name}</div>
-                            <div class="text-[9px] text-slate-400 font-bold uppercase">${i.brand || 'NO BRAND'}</div>
-                        </td>
-                        <td class="px-4 py-4 text-right font-mono font-bold text-blue-700">₱${Number(i.price).toLocaleString()} <span class="text-[8px] text-slate-400">/${i.unit}</span></td>
-                        <td class="admin-only-header ${isAdmin ? '' : 'hidden'} px-4 py-4 text-right">
-                            <div class="flex justify-end gap-2">
-                                <button onclick="editItem('${i.id}')" class="text-slate-400 hover:text-blue-600"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-                                <button onclick="deleteItem('${i.id}')" class="text-slate-400 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                            </div>
-                        </td>
-                    </tr>
-                `).join('');
-            }
-            document.getElementById('tableContainer').classList.remove('hidden');
+            tableBody.innerHTML = filtered.map(i => `
+                <tr class="hover:bg-slate-50">
+                    <td class="px-4 py-4 text-blue-600 font-mono font-bold">#${i.idNo || '0'}</td>
+                    <td class="px-4 py-4">
+                        <div class="font-bold uppercase">${i.name}</div>
+                        <div class="text-[9px] text-slate-400 font-bold uppercase">${i.brand || ''}</div>
+                    </td>
+                    <td class="px-4 py-4 text-right font-mono font-bold text-blue-700">₱${Number(i.price).toLocaleString()} <span class="text-[8px] text-slate-400">/${i.unit}</span></td>
+                    <td class="admin-only-header ${isAdmin ? '' : 'hidden'} px-4 py-4 text-right">
+                        <button onclick="editItem('${i.id}')" class="text-slate-400 hover:text-blue-600 mr-2"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                        <button onclick="deleteItem('${i.id}')" class="text-slate-400 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </td>
+                </tr>
+            `).join('');
             lucide.createIcons();
         };
 
@@ -299,7 +264,7 @@
         };
 
         window.deleteItem = async (id) => {
-            if (confirm("Sigurado ka bang nais mong burahin ito?")) {
+            if (confirm("Burahin ang item?")) {
                 try {
                     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
                     refreshData();
@@ -322,8 +287,7 @@
                 if (id) {
                     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data);
                 } else {
-                    const nextId = items.length > 0 ? Math.max(...items.map(i => i.idNo || 0)) + 1 : 1;
-                    data.idNo = nextId;
+                    data.idNo = items.length > 0 ? Math.max(...items.map(i => i.idNo || 0)) + 1 : 1;
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), data);
                 }
                 refreshData();
@@ -332,6 +296,20 @@
             } catch (err) { alert(err.message); }
         };
 
+        window.saveBoardMessage = async () => {
+            if (!isAdmin) return;
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'messageBoard'), {
+                    title: document.getElementById('inputBoardTitle').value.toUpperCase(),
+                    content: document.getElementById('inputBoardContent').value.toUpperCase(),
+                    updatedAt: serverTimestamp()
+                });
+                refreshData();
+                closeModal('messageModal');
+            } catch (err) { alert(err.message); }
+        };
+
+        window.addEventListener('load', initFirebase);
         document.getElementById('searchInput').oninput = render;
         window.refreshData = refreshData;
         window.handleLogout = () => location.reload();
