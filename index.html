@@ -26,7 +26,6 @@
 
         tr { transform: translateZ(0); }
 
-        /* Print Logic */
         @media print { 
             .no-print { display: none !important; } 
             #tableContainer { box-shadow: none; border: none; width: 100%; } 
@@ -34,13 +33,7 @@
             main { padding: 0; max-width: 100%; }
             #messageBoard { border: 1px solid #e2e8f0; color: black !important; background: white !important; box-shadow: none; margin-bottom: 20px; }
             #messageBoard * { color: black !important; }
-            
-            /* If Selection Mode is ON, hide any row that is NOT selected */
-            body.selection-active-print tr:not(.selected-row):not(.header-row) {
-                display: none !important;
-            }
-
-            /* Ensure selected rows look clean in print */
+            body.selection-active-print tr:not(.selected-row):not(.header-row) { display: none !important; }
             .selected-row { background-color: transparent !important; }
         }
     </style>
@@ -55,7 +48,6 @@
             </div>
             
             <div class="flex items-center gap-1 sm:gap-3">
-                <!-- Public Controls -->
                 <button onclick="refreshData()" class="p-2 text-slate-500 hover:text-blue-600 transition" title="Refresh Data">
                     <i data-lucide="refresh-cw" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                 </button>
@@ -67,11 +59,10 @@
                     <i data-lucide="printer" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                 </button>
 
-                <!-- Admin Controls -->
                 <div id="adminControls" class="hidden flex items-center gap-1 sm:gap-3 border-l border-slate-200 pl-2 sm:pl-3">
                     <input type="file" id="excelInput" accept=".xlsx, .xls" class="hidden" onchange="handleExcelUpload(event)">
-                    <button onclick="document.getElementById('excelInput').click()" class="hidden lg:flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition">
-                        <i data-lucide="file-up" class="w-4 h-4"></i><span class="uppercase text-[10px] font-black">Import</span>
+                    <button onclick="document.getElementById('excelInput').click()" class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition">
+                        <i data-lucide="file-up" class="w-4 h-4"></i><span class="hidden lg:inline uppercase text-[10px] font-black">Import</span>
                     </button>
                     <button onclick="openModal('itemModal', 'add')" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 transition">Add</button>
                     <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-red-500 transition"><i data-lucide="log-out" class="w-4 h-4 sm:w-5 sm:h-5"></i></button>
@@ -82,7 +73,6 @@
     </header>
 
     <main class="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
-        <!-- Message Board Section -->
         <div id="messageBoard" class="mb-6 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-4 sm:p-6 shadow-lg text-white relative overflow-hidden">
             <div class="absolute top-0 right-0 p-4 opacity-10">
                 <i data-lucide="megaphone" class="w-24 h-24 rotate-12"></i>
@@ -330,6 +320,44 @@
             }
         };
 
+        // EXCEL IMPORT LOGIC
+        window.handleExcelUpload = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet);
+
+                if (confirm(`Import ${json.length} items? This might take a moment.`)) {
+                    let nextId = getNextIdNo();
+                    for (const row of json) {
+                        const material = {
+                            idNo: nextId++,
+                            name: (row.Material || row.Name || row.description || "").toString().toUpperCase(),
+                            brand: (row.Brand || "").toString().toUpperCase(),
+                            supplier: (row.Supplier || "").toString().toUpperCase(),
+                            price: parseFloat(row.Price || row.price) || 0,
+                            unit: (row.Unit || row.unit || "PC").toString().toUpperCase(),
+                            updatedAt: serverTimestamp()
+                        };
+                        
+                        if (material.name) {
+                            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), material);
+                        }
+                    }
+                    alert("Import completed successfully.");
+                    refreshData();
+                }
+                event.target.value = ''; // Reset input
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
         window.toggleSelectionMode = () => {
             isSelectionMode = !isSelectionMode;
             document.getElementById('selectionInfo').classList.toggle('hidden', !isSelectionMode);
@@ -422,10 +450,7 @@
             });
         };
 
-        window.handlePrint = () => {
-            render();
-            window.print();
-        };
+        window.handlePrint = () => { render(); window.print(); };
 
         document.getElementById('searchInput').oninput = () => {
             clearTimeout(searchTimeout);
