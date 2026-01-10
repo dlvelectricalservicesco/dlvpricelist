@@ -105,7 +105,7 @@
                             <th class="hidden md:table-cell px-4 py-4 cursor-pointer" onclick="handleSort('brand')">Brand</th>
                             <th class="hidden lg:table-cell px-4 py-4 cursor-pointer" onclick="handleSort('supplier')">Supplier</th>
                             <th class="px-4 py-4 text-right cursor-pointer" onclick="handleSort('price')">Price</th>
-                            <th class="admin-only hidden px-4 py-4 text-right no-print">Actions</th>
+                            <th class="admin-only-header hidden px-4 py-4 text-right no-print">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="materialsTableBody" class="divide-y divide-slate-100 text-[11px] sm:text-xs font-medium"></tbody>
@@ -123,7 +123,7 @@
             </div>
             <form onsubmit="event.preventDefault(); submitLogin();">
                 <input type="password" id="loginPassword" placeholder="PASSWORD" class="w-full p-3 border border-slate-200 rounded-lg mb-4 uppercase text-xs outline-none focus:border-blue-500">
-                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold uppercase text-xs">Login</button>
+                <button type="submit" id="loginSubmitBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold uppercase text-xs">Login</button>
             </form>
         </div>
     </div>
@@ -208,24 +208,43 @@
         };
 
         window.openModal = (id, mode = 'add') => {
-            document.getElementById(id).classList.add('active');
+            const modal = document.getElementById(id);
+            modal.classList.add('active');
             if (id === 'itemModal' && mode === 'add') {
                 document.getElementById('itemForm').reset();
                 document.getElementById('itemId').value = "";
                 document.getElementById('displayIdNo').textContent = "NEW ID #" + getNextIdNo();
+            } else if (id === 'loginModal') {
+                setTimeout(() => document.getElementById('loginPassword').focus(), 300);
             }
         };
 
         window.closeModal = (id) => document.getElementById(id).classList.remove('active');
 
         window.submitLogin = () => {
-            if (document.getElementById('loginPassword').value === 'admin') {
+            const pass = document.getElementById('loginPassword').value;
+            const btn = document.getElementById('loginSubmitBtn');
+            
+            if (pass === 'admin') {
                 isAdmin = true;
+                // Instant UI change for elements outside the table
                 document.getElementById('adminControls').classList.remove('hidden');
                 document.getElementById('loginBtn').classList.add('hidden');
-                document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+                
+                // Close modal immediately to improve perceived speed
                 closeModal('loginModal');
-                render();
+                
+                // Show admin column headers
+                document.querySelectorAll('.admin-only-header').forEach(el => el.classList.remove('hidden'));
+                
+                // Use requestIdleCallback or a short timeout to defer the heavy render
+                // so the modal closes smoothly first
+                setTimeout(() => {
+                    render();
+                }, 100);
+            } else {
+                btn.classList.add('bg-red-500');
+                setTimeout(() => btn.classList.remove('bg-red-500'), 500);
             }
         };
 
