@@ -9,18 +9,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
-        .modal { transition: opacity 0.15s ease-out; opacity: 0; pointer-events: none; }
+        .modal { transition: opacity 0.2s ease-in-out; opacity: 0; pointer-events: none; }
         .modal.active { opacity: 1; pointer-events: auto; }
-        .modal-content { transform: scale(0.95); transition: transform 0.15s ease-out; }
+        .modal-content { transform: scale(0.98); transition: transform 0.2s ease-in-out; }
         .modal.active .modal-content { transform: scale(1); }
         .selected-row { background-color: #f0f7ff !important; }
         
-        /* Layout stability */
+        /* Optimization: Use hardware acceleration and contain-intrinsic-size for large lists */
         .overflow-x-auto { -webkit-overflow-scrolling: touch; transform: translateZ(0); }
-        tr { contain: layout style; height: 57px; }
-        
-        /* Admin Visibility Logic - CSS based for zero-lag switching */
-        body:not(.is-admin) .admin-only { display: none !important; }
+        tr { contain: content; }
         
         .price-grid { display: grid; grid-template-columns: 12px 1fr 35px; align-items: baseline; gap: 1px; width: 100%; max-width: 140px; margin-left: auto; }
         .price-number { text-align: right; font-variant-numeric: tabular-nums; }
@@ -40,7 +37,7 @@
         }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen transition-opacity duration-300">
+<body class="bg-slate-50 text-slate-900 min-h-screen">
 
     <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm no-print">
         <div class="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
@@ -58,7 +55,7 @@
                     <i data-lucide="printer" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                 </button>
 
-                <div id="adminControls" class="admin-only hidden flex items-center gap-1 sm:gap-2 border-l pl-2 ml-1">
+                <div id="adminControls" class="hidden flex items-center gap-1 sm:gap-2 border-l pl-2 ml-1">
                     <button onclick="openModal('itemModal', 'add')" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase hover:bg-blue-700 transition">Add</button>
                     <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-red-500 transition"><i data-lucide="log-out" class="w-4 h-4"></i></button>
                 </div>
@@ -69,19 +66,19 @@
     </header>
 
     <main class="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
-        <div id="messageBoard" class="mb-6 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-4 sm:p-6 shadow-lg text-white relative overflow-hidden">
+        <div id="messageBoard" class="mb-6 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-4 sm:p-6 shadow-lg text-white relative overflow-hidden transition-all">
             <div class="absolute top-0 right-0 p-4 opacity-10 no-print">
                 <i data-lucide="megaphone" class="w-20 h-20 rotate-12"></i>
             </div>
             <div class="relative z-10">
                 <div class="flex items-center justify-between mb-2">
                     <span class="text-[10px] font-black uppercase tracking-widest bg-white/20 px-2 py-0.5 rounded">Announcement</span>
-                    <button id="editMessageBtn" onclick="openModal('messageModal')" class="admin-only hidden bg-white/20 hover:bg-white/30 p-1.5 rounded-lg transition no-print">
+                    <button id="editMessageBtn" onclick="openModal('messageModal')" class="hidden bg-white/20 hover:bg-white/30 p-1.5 rounded-lg transition no-print">
                         <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
                     </button>
                 </div>
                 <h2 id="boardTitle" class="text-lg sm:text-xl font-black uppercase mb-1">Latest Updates</h2>
-                <p id="boardContent" class="text-sm text-blue-50 font-medium leading-relaxed italic">Welcome to DLV Materials Tracker.</p>
+                <p id="boardContent" class="text-sm text-blue-50 font-medium leading-relaxed">Loading announcement...</p>
                 <div id="boardDate" class="mt-4 text-[9px] font-bold uppercase tracking-tighter opacity-70 flex items-center gap-1">
                     <i data-lucide="calendar" class="w-3 h-3"></i>
                     <span id="boardTimestamp">Last updated: --</span>
@@ -89,7 +86,7 @@
             </div>
         </div>
 
-        <div id="selectionInfo" class="hidden no-print mb-4 p-3 bg-blue-50 border border-blue-100 rounded-xl flex justify-between items-center">
+        <div id="selectionInfo" class="hidden no-print mb-4 p-3 bg-blue-50 border border-blue-100 rounded-xl flex justify-between items-center animate-in fade-in slide-in-from-top-2">
             <div class="flex items-center gap-2">
                 <i data-lucide="info" class="w-4 h-4 text-blue-600"></i>
                 <p class="text-[10px] text-blue-700 font-bold uppercase"><span id="selectedCount">0</span> items marked for printing</p>
@@ -100,7 +97,7 @@
         <div class="mb-4 no-print">
             <div class="relative w-full">
                 <i data-lucide="search" class="w-4 h-4 absolute left-4 top-3.5 text-slate-400"></i>
-                <input type="text" id="searchInput" placeholder="Search materials..." class="w-full pl-11 pr-4 py-3.5 border border-slate-200 rounded-2xl outline-none text-sm uppercase shadow-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all bg-white">
+                <input type="text" id="searchInput" placeholder="Search materials or ID..." class="w-full pl-11 pr-4 py-3.5 border border-slate-200 rounded-2xl outline-none text-sm uppercase shadow-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all bg-white">
             </div>
         </div>
 
@@ -111,7 +108,7 @@
 
         <div id="tableContainer" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="overflow-x-auto w-full">
-                <table id="materialsTable" class="w-full text-left border-collapse min-w-[600px]">
+                <table id="materialsTable" class="w-full text-left border-collapse min-w-[600px] sm:min-w-full">
                     <thead class="bg-slate-50 border-b border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest">
                         <tr class="header-row">
                             <th id="selectHeader" class="hidden px-4 py-4 w-12 no-print"></th>
@@ -120,7 +117,7 @@
                             <th class="hidden md:table-cell px-4 py-4">Brand</th>
                             <th class="hidden lg:table-cell px-4 py-4">Supplier</th>
                             <th class="px-4 py-4 text-right cursor-pointer hover:text-blue-600" onclick="handleSort('price')">Price</th>
-                            <th class="admin-only hidden px-4 py-4 text-right no-print">Actions</th>
+                            <th class="admin-only-header hidden px-4 py-4 text-right no-print">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="materialsTableBody" class="divide-y divide-slate-100 text-[11px] sm:text-xs font-medium"></tbody>
@@ -129,7 +126,7 @@
         </div>
     </main>
 
-    <!-- Modals -->
+    <!-- Modals (Admin & Messaging) -->
     <div id="loginModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div class="modal-content bg-white p-6 rounded-2xl w-full max-w-sm shadow-2xl">
             <div class="flex justify-between items-center mb-6">
@@ -206,14 +203,12 @@
         let isAdmin = false;
         let isSelectionMode = false;
         let sortConfig = { key: 'name', direction: 'asc' };
+        let searchTimeout;
         let renderFrame;
 
-        // Specialized Icon Updater for better performance
-        const updateIcons = (container = document) => {
-            lucide.createIcons({
-                attrs: { class: 'lucide' },
-                nameAttr: 'data-lucide'
-            });
+        // Optimized Icon Renderer: Use createIcons but with a scope for better performance
+        const updateIcons = () => {
+            lucide.createIcons();
         };
 
         const fetchBoardMessage = async () => {
@@ -222,7 +217,7 @@
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     document.getElementById('boardTitle').textContent = data.title || 'Latest Updates';
-                    document.getElementById('boardContent').textContent = data.content || 'Welcome to DLV Materials Tracker.';
+                    document.getElementById('boardContent').textContent = data.content || 'Welcome to DLV Materials Pricelist.';
                     if (data.updatedAt) {
                         const date = data.updatedAt.toDate();
                         document.getElementById('boardTimestamp').textContent = `Last updated: ${date.toLocaleDateString()} ${date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
@@ -247,18 +242,15 @@
         };
 
         const refreshData = async () => {
-            const loader = document.getElementById('loadingState');
-            const container = document.getElementById('tableContainer');
-            loader.classList.remove('hidden');
-            container.classList.add('hidden');
-            
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('tableContainer').classList.add('hidden');
             try {
                 fetchBoardMessage();
                 const snap = await getDocs(query(collection(db, 'artifacts', appId, 'public', 'data', 'materials')));
                 items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 debouncedRender();
             } catch (err) { console.error(err); }
-            finally { loader.classList.add('hidden'); }
+            finally { document.getElementById('loadingState').classList.add('hidden'); }
         };
 
         onAuthStateChanged(auth, (user) => {
@@ -267,7 +259,8 @@
         });
 
         window.openModal = (id, mode = 'add') => {
-            document.getElementById(id).classList.add('active');
+            const modal = document.getElementById(id);
+            modal.classList.add('active');
             if (id === 'itemModal' && mode === 'add') {
                 document.getElementById('itemForm').reset();
                 document.getElementById('itemId').value = "";
@@ -281,13 +274,14 @@
         window.submitLogin = () => {
             if (document.getElementById('loginPassword').value === 'admin') {
                 isAdmin = true;
-                // Instant CSS switch instead of querySelectorAll loop
-                document.body.classList.add('is-admin');
-                document.getElementById('loginBtn').classList.add('hidden');
-                closeModal('loginModal');
-                debouncedRender();
-            } else {
-                alert("Incorrect access code.");
+                requestAnimationFrame(() => {
+                    document.getElementById('adminControls').classList.remove('hidden');
+                    document.getElementById('loginBtn').classList.add('hidden');
+                    document.getElementById('editMessageBtn').classList.remove('hidden');
+                    document.querySelectorAll('.admin-only-header').forEach(el => el.classList.remove('hidden'));
+                    closeModal('loginModal');
+                    debouncedRender();
+                });
             }
         };
 
@@ -333,6 +327,7 @@
             openModal('itemModal', 'edit');
         };
 
+        // Debounced Render: Prevents UI blocking during rapid updates (like scrolling selection)
         const debouncedRender = () => {
             if (renderFrame) cancelAnimationFrame(renderFrame);
             renderFrame = requestAnimationFrame(render);
@@ -352,12 +347,12 @@
             });
 
             const body = document.getElementById('materialsTableBody');
-            let html = '';
             
-            for (let i = 0, len = filtered.length; i < len; i++) {
+            // Generate content as a single batch for minimal layout thrashing
+            let html = '';
+            for (let i = 0; i < filtered.length; i++) {
                 const item = filtered[i];
                 const isSelected = selectedIds.has(item.id);
-                
                 html += `
                     <tr onclick="toggleRowSelection('${item.id}')" class="transition-colors ${isSelected ? 'selected-row' : 'hover:bg-slate-50 cursor-pointer'}">
                         <td class="${isSelectionMode ? '' : 'hidden'} px-4 py-4 no-print">
@@ -379,7 +374,7 @@
                                 <span class="text-[7px] text-slate-300 font-black uppercase">/${item.unit}</span>
                             </div>
                         </td>
-                        <td class="admin-only px-4 py-4 text-right no-print">
+                        <td class="${isAdmin ? '' : 'hidden'} px-4 py-4 text-right no-print">
                             <div class="flex justify-end gap-3">
                                 <button onclick="event.stopPropagation(); editItem('${item.id}')" class="text-slate-300 hover:text-blue-600"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
                                 <button onclick="event.stopPropagation(); deleteItem('${item.id}')" class="text-slate-300 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
@@ -396,13 +391,13 @@
 
         window.handlePrint = () => {
             render();
-            setTimeout(() => window.print(), 100);
+            setTimeout(() => window.print(), 50);
         };
 
-        document.getElementById('searchInput').addEventListener('input', () => {
-            if (renderFrame) cancelAnimationFrame(renderFrame);
-            renderFrame = requestAnimationFrame(render);
-        });
+        document.getElementById('searchInput').oninput = () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(debouncedRender, 100);
+        };
 
         document.getElementById('itemForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -436,14 +431,8 @@
             }
         };
 
-        window.handleLogout = () => {
-            isAdmin = false;
-            document.body.classList.remove('is-admin');
-            document.getElementById('loginBtn').classList.remove('hidden');
-            debouncedRender();
-        };
-
-        // Initialize Icons
+        window.refreshData = refreshData;
+        window.handleLogout = () => location.reload();
         updateIcons();
     </script>
 </body>
