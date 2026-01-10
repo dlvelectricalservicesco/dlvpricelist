@@ -228,7 +228,8 @@
         // Message Board Logic
         const fetchBoardMessage = async () => {
             try {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'settings', 'messageBoard');
+                // Corrected path: artifacts/{appId}/public/data/settings/messageBoard (6 segments)
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'messageBoard');
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     const data = docSnap.data();
@@ -250,7 +251,8 @@
             try {
                 const title = document.getElementById('inputBoardTitle').value.toUpperCase();
                 const content = document.getElementById('inputBoardContent').value.toUpperCase();
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'settings', 'messageBoard'), {
+                // Corrected path for saving
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'messageBoard'), {
                     title, content, updatedAt: serverTimestamp()
                 });
                 await fetchBoardMessage();
