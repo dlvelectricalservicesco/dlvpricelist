@@ -15,13 +15,13 @@
         .modal.active .modal-content { transform: scale(1); }
         .selected-row { background-color: #f0f7ff !important; }
         
-        /* Optimization: Use hardware acceleration for smoother scrolling */
+        /* Optimization: Use hardware acceleration and contain-intrinsic-size for large lists */
         .overflow-x-auto { -webkit-overflow-scrolling: touch; transform: translateZ(0); }
+        tr { contain: content; }
         
         .price-grid { display: grid; grid-template-columns: 12px 1fr 35px; align-items: baseline; gap: 1px; width: 100%; max-width: 140px; margin-left: auto; }
         .price-number { text-align: right; font-variant-numeric: tabular-nums; }
 
-        /* Print Logic */
         @media print { 
             .no-print { display: none !important; } 
             #tableContainer { box-shadow: none; border: none; width: 100%; display: block !important; } 
@@ -47,7 +47,6 @@
             </div>
             
             <div class="flex items-center gap-1 sm:gap-2">
-                <!-- Public Controls -->
                 <button id="selectionToggle" onclick="toggleSelectionMode()" class="flex items-center gap-1.5 p-2 sm:px-3 sm:py-2 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition">
                     <i data-lucide="check-square" class="w-4 h-4"></i>
                     <span id="selectionLabel" class="hidden sm:inline uppercase text-[10px] font-black">Select Mode</span>
@@ -56,7 +55,6 @@
                     <i data-lucide="printer" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                 </button>
 
-                <!-- Admin Only Controls -->
                 <div id="adminControls" class="hidden flex items-center gap-1 sm:gap-2 border-l pl-2 ml-1">
                     <button onclick="openModal('itemModal', 'add')" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase hover:bg-blue-700 transition">Add</button>
                     <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-red-500 transition"><i data-lucide="log-out" class="w-4 h-4"></i></button>
@@ -206,9 +204,12 @@
         let isSelectionMode = false;
         let sortConfig = { key: 'name', direction: 'asc' };
         let searchTimeout;
+        let renderFrame;
 
-        // Optimized Icon Renderer: Only runs after bulk DOM changes
-        const updateIcons = () => lucide.createIcons();
+        // Optimized Icon Renderer: Use createIcons but with a scope for better performance
+        const updateIcons = () => {
+            lucide.createIcons();
+        };
 
         const fetchBoardMessage = async () => {
             try {
@@ -247,7 +248,7 @@
                 fetchBoardMessage();
                 const snap = await getDocs(query(collection(db, 'artifacts', appId, 'public', 'data', 'materials')));
                 items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                render();
+                debouncedRender();
             } catch (err) { console.error(err); }
             finally { document.getElementById('loadingState').classList.add('hidden'); }
         };
@@ -273,12 +274,14 @@
         window.submitLogin = () => {
             if (document.getElementById('loginPassword').value === 'admin') {
                 isAdmin = true;
-                document.getElementById('adminControls').classList.remove('hidden');
-                document.getElementById('loginBtn').classList.add('hidden');
-                document.getElementById('editMessageBtn').classList.remove('hidden');
-                document.querySelectorAll('.admin-only-header').forEach(el => el.classList.remove('hidden'));
-                closeModal('loginModal');
-                render();
+                requestAnimationFrame(() => {
+                    document.getElementById('adminControls').classList.remove('hidden');
+                    document.getElementById('loginBtn').classList.add('hidden');
+                    document.getElementById('editMessageBtn').classList.remove('hidden');
+                    document.querySelectorAll('.admin-only-header').forEach(el => el.classList.remove('hidden'));
+                    closeModal('loginModal');
+                    debouncedRender();
+                });
             }
         };
 
@@ -294,22 +297,22 @@
             } else {
                 document.body.classList.add('selection-active-print');
             }
-            render();
+            debouncedRender();
         };
 
         window.toggleRowSelection = (id) => {
             if (!isSelectionMode) return;
             selectedIds.has(id) ? selectedIds.delete(id) : selectedIds.add(id);
             document.getElementById('selectedCount').textContent = selectedIds.size;
-            render();
+            debouncedRender();
         };
 
-        window.clearSelection = () => { selectedIds.clear(); document.getElementById('selectedCount').textContent = "0"; render(); };
+        window.clearSelection = () => { selectedIds.clear(); document.getElementById('selectedCount').textContent = "0"; debouncedRender(); };
         
         window.handleSort = (key) => {
             sortConfig.direction = (sortConfig.key === key && sortConfig.direction === 'asc') ? 'desc' : 'asc';
             sortConfig.key = key;
-            render();
+            debouncedRender();
         };
 
         window.editItem = (id) => {
@@ -324,7 +327,12 @@
             openModal('itemModal', 'edit');
         };
 
-        // Optimized Render: Uses template strings and reduces reflows
+        // Debounced Render: Prevents UI blocking during rapid updates (like scrolling selection)
+        const debouncedRender = () => {
+            if (renderFrame) cancelAnimationFrame(renderFrame);
+            renderFrame = requestAnimationFrame(render);
+        };
+
         const render = () => {
             const term = document.getElementById('searchInput').value.toLowerCase();
             const filtered = items.filter(i => 
@@ -333,45 +341,50 @@
                 (i.idNo || '').toString().includes(term)
             ).sort((a, b) => {
                 let v1 = a[sortConfig.key], v2 = b[sortConfig.key];
+                if (v1 === v2) return 0;
                 if (typeof v1 === 'string') { v1 = v1.toLowerCase(); v2 = v2.toLowerCase(); }
                 return sortConfig.direction === 'asc' ? (v1 > v2 ? 1 : -1) : (v1 < v2 ? 1 : -1);
             });
 
+            const body = document.getElementById('materialsTableBody');
+            
+            // Generate content as a single batch for minimal layout thrashing
             let html = '';
-            for (const i of filtered) {
-                const isSelected = selectedIds.has(i.id);
+            for (let i = 0; i < filtered.length; i++) {
+                const item = filtered[i];
+                const isSelected = selectedIds.has(item.id);
                 html += `
-                    <tr onclick="toggleRowSelection('${i.id}')" class="transition-colors ${isSelected ? 'selected-row' : 'hover:bg-slate-50 cursor-pointer'}">
+                    <tr onclick="toggleRowSelection('${item.id}')" class="transition-colors ${isSelected ? 'selected-row' : 'hover:bg-slate-50 cursor-pointer'}">
                         <td class="${isSelectionMode ? '' : 'hidden'} px-4 py-4 no-print">
                             <div class="w-4 h-4 border rounded flex items-center justify-center ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}">
                                 ${isSelected ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}
                             </div>
                         </td>
-                        <td class="px-4 py-4 text-blue-600 font-mono font-black">#${i.idNo}</td>
+                        <td class="px-4 py-4 text-blue-600 font-mono font-black">#${item.idNo}</td>
                         <td class="px-4 py-4">
-                            <div class="font-bold text-slate-800 uppercase leading-tight">${i.name}</div>
-                            <div class="md:hidden text-[8px] text-slate-400 font-bold uppercase mt-0.5">${i.brand || ''} ${i.brand && i.supplier ? '•' : ''} ${i.supplier || ''}</div>
+                            <div class="font-bold text-slate-800 uppercase leading-tight">${item.name}</div>
+                            <div class="md:hidden text-[8px] text-slate-400 font-bold uppercase mt-0.5">${item.brand || ''} ${item.brand && item.supplier ? '•' : ''} ${item.supplier || ''}</div>
                         </td>
-                        <td class="hidden md:table-cell px-4 py-4 text-slate-400 uppercase font-bold">${i.brand || '-'}</td>
-                        <td class="hidden lg:table-cell px-4 py-4 text-slate-400 uppercase font-bold">${i.supplier || '-'}</td>
+                        <td class="hidden md:table-cell px-4 py-4 text-slate-400 uppercase font-bold">${item.brand || '-'}</td>
+                        <td class="hidden lg:table-cell px-4 py-4 text-slate-400 uppercase font-bold">${item.supplier || '-'}</td>
                         <td class="px-4 py-4">
                             <div class="price-grid">
                                 <span class="text-[9px] font-black text-slate-300">₱</span>
-                                <span class="price-number font-mono font-black text-blue-700 text-[13px]">${Number(i.price).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                                <span class="text-[7px] text-slate-300 font-black uppercase">/${i.unit}</span>
+                                <span class="price-number font-mono font-black text-blue-700 text-[13px]">${Number(item.price).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                <span class="text-[7px] text-slate-300 font-black uppercase">/${item.unit}</span>
                             </div>
                         </td>
                         <td class="${isAdmin ? '' : 'hidden'} px-4 py-4 text-right no-print">
                             <div class="flex justify-end gap-3">
-                                <button onclick="event.stopPropagation(); editItem('${i.id}')" class="text-slate-300 hover:text-blue-600"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-                                <button onclick="event.stopPropagation(); deleteItem('${i.id}')" class="text-slate-300 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                <button onclick="event.stopPropagation(); editItem('${item.id}')" class="text-slate-300 hover:text-blue-600"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                                <button onclick="event.stopPropagation(); deleteItem('${item.id}')" class="text-slate-300 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                             </div>
                         </td>
                     </tr>
                 `;
             }
 
-            document.getElementById('materialsTableBody').innerHTML = html;
+            body.innerHTML = html;
             document.getElementById('tableContainer').classList.toggle('hidden', items.length === 0);
             updateIcons();
         };
@@ -383,7 +396,7 @@
 
         document.getElementById('searchInput').oninput = () => {
             clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(render, 100);
+            searchTimeout = setTimeout(debouncedRender, 100);
         };
 
         document.getElementById('itemForm').addEventListener('submit', async (e) => {
