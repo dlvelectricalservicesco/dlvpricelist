@@ -25,8 +25,17 @@
         }
         .item-highlight { animation: highlight-fade 2.5s ease-out forwards; z-index: 10; position: relative; }
 
+        /* Scrollable logs - limited height */
+        .log-scroll { max-height: 420px; overflow-y: auto; }
         .log-scroll::-webkit-scrollbar { width: 4px; }
         .log-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .error-shake { animation: shake 0.2s ease-in-out 0s 2; }
 
         @keyframes shine {
             0% { left: -100%; }
@@ -47,7 +56,9 @@
 
         @media print { 
             .no-print { display: none !important; } 
+            /* Selection mode specific print logic */
             body.selection-active-print tr:not(.selected-row):not(.header-row) { display: none !important; }
+            .selected-row { background-color: white !important; }
         }
     </style>
 </head>
@@ -99,7 +110,6 @@
                 </div>
                 <h2 id="boardTitle" class="text-xl sm:text-2xl font-black uppercase mb-2 tracking-tight">Latest Updates</h2>
                 <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-                    <!-- whitespace-pre-wrap ensures line breaks (\n) are rendered -->
                     <p id="boardContent" class="text-sm font-semibold whitespace-pre-wrap leading-relaxed">Loading message...</p>
                 </div>
             </div>
@@ -144,7 +154,7 @@
         </div>
     </main>
 
-    <!-- Activity Logs Modal (Admin Only) -->
+    <!-- Activity Logs Modal -->
     <div id="logsModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div class="modal-content bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[80vh]">
             <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
@@ -154,23 +164,27 @@
                 </div>
                 <button onclick="closeModal('logsModal')" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
-            <div id="logsList" class="p-4 overflow-y-auto log-scroll flex-1 space-y-3 bg-white">
-                <!-- Logs will be rendered here -->
+            <div id="logsList" class="p-4 log-scroll flex-1 space-y-3 bg-white">
+                <!-- Logs rendered here -->
             </div>
             <div class="p-4 bg-slate-50 border-t border-slate-100 text-center">
-                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Showing recent 50 activities</p>
+                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Showing recent 50 activities • Scroll for more</p>
             </div>
         </div>
     </div>
 
-    <!-- Modals -->
     <div id="loginModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-        <div class="modal-content bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl">
+        <div id="loginContent" class="modal-content bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl">
             <h3 class="text-lg font-black uppercase mb-4 text-center">Admin access</h3>
+            <div id="loginError" class="hidden mb-4 p-3 bg-red-50 border border-red-100 rounded-lg flex items-center gap-2">
+                <i data-lucide="alert-circle" class="w-4 h-4 text-red-500"></i>
+                <p class="text-[10px] font-black uppercase text-red-600">Incorrect Password</p>
+            </div>
             <form onsubmit="event.preventDefault(); submitLogin();">
                 <input type="password" id="loginPassword" placeholder="PASSWORD" class="w-full p-3 border border-slate-200 rounded-lg mb-4 text-xs outline-none focus:border-blue-500">
                 <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold uppercase text-xs">Verify</button>
             </form>
+            <button onclick="closeModal('loginModal')" class="w-full mt-2 text-[10px] font-black uppercase text-slate-400 py-2">Cancel</button>
         </div>
     </div>
 
@@ -233,7 +247,6 @@
         let isSelectionMode = false;
         let sortConfig = { key: 'idNo', direction: 'asc' }; 
 
-        // Activity Logging Helper
         const createLog = async (action, itemName, itemId, idNo) => {
             if (!isAdmin) return;
             try {
@@ -310,29 +323,22 @@
                 const data = docSnap.data();
                 document.getElementById('boardTitle').textContent = data.title;
                 document.getElementById('boardContent').textContent = data.content;
-                // Pre-populate modal inputs
                 document.getElementById('inputBoardTitle').value = data.title;
                 document.getElementById('inputBoardContent').value = data.content;
             }
         };
 
-        window.openMessageModal = () => {
-            if (!isAdmin) return;
-            openModal('messageModal');
-        };
+        window.openMessageModal = () => isAdmin && openModal('messageModal');
 
         window.saveBoardMessage = async () => {
             const title = document.getElementById('inputBoardTitle').value.toUpperCase();
             const content = document.getElementById('inputBoardContent').value.toUpperCase();
-            
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'messageBoard'), {
-                title,
-                content,
-                updatedAt: serverTimestamp()
+                title, content, updatedAt: serverTimestamp()
             });
             fetchBoardMessage();
             closeModal('messageModal');
-            createLog('EDIT', `BOARD UPDATE: ${title}`, 'board', 'MSG');
+            createLog('EDIT', `BOARD: ${title}`, 'board', 'MSG');
         };
 
         const refreshData = async () => {
@@ -356,6 +362,14 @@
             if (id === 'logsModal' && !isAdmin) return;
             const modal = document.getElementById(id);
             modal.classList.add('active');
+            
+            // Reset state for specific modals
+            if (id === 'loginModal') {
+                document.getElementById('loginError').classList.add('hidden');
+                document.getElementById('loginPassword').value = '';
+                document.getElementById('loginContent').classList.remove('error-shake');
+            }
+            
             if (id === 'itemModal' && mode === 'add') {
                 document.getElementById('itemForm').reset();
                 document.getElementById('itemId').value = "";
@@ -369,7 +383,11 @@
         window.closeModal = (id) => document.getElementById(id).classList.remove('active');
 
         window.submitLogin = () => {
-            if (document.getElementById('loginPassword').value === 'admin') {
+            const passwordInput = document.getElementById('loginPassword');
+            const errorBanner = document.getElementById('loginError');
+            const loginContent = document.getElementById('loginContent');
+
+            if (passwordInput.value === 'admin') {
                 isAdmin = true;
                 document.getElementById('adminControls').classList.remove('hidden');
                 document.getElementById('loginBtn').classList.add('hidden');
@@ -378,6 +396,14 @@
                 closeModal('loginModal');
                 render();
                 fetchLogs();
+            } else {
+                // Show Error and Shake
+                errorBanner.classList.remove('hidden');
+                loginContent.classList.remove('error-shake');
+                void loginContent.offsetWidth; // Trigger reflow to restart animation
+                loginContent.classList.add('error-shake');
+                passwordInput.value = '';
+                passwordInput.focus();
             }
         };
 
@@ -426,7 +452,7 @@
             });
 
             document.getElementById('materialsTableBody').innerHTML = filtered.map(i => `
-                <tr onclick="toggleRowSelection('${i.id}')" class="${selectedIds.has(i.id) ? 'selected-row' : 'hover:bg-slate-50'} transition-all">
+                <tr onclick="toggleRowSelection('${i.id}')" class="${selectedIds.has(i.id) ? 'selected-row' : 'hover:bg-slate-50'} transition-all cursor-pointer">
                     <td class="${isSelectionMode ? '' : 'hidden'} px-3 py-4">
                         <div class="w-4 h-4 border rounded ${selectedIds.has(i.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}"></div>
                     </td>
@@ -498,39 +524,62 @@
 
         window.handleExcelUpload = (e) => {
             const file = e.target.files[0];
+            if (!file) return;
             const reader = new FileReader();
             reader.onload = async (evt) => {
-                const bstr = evt.target.result;
-                const wb = XLSX.read(bstr, { type: 'binary' });
-                const wsname = wb.SheetNames[0];
-                const ws = wb.Sheets[wsname];
-                const data = XLSX.utils.sheet_to_json(ws);
-                
-                for (const row of data) {
-                    const idNo = items.length > 0 ? Math.max(...items.map(i => parseInt(i.idNo) || 0)) + 1 : 1;
-                    const material = {
-                        idNo: idNo,
-                        name: (row.Material || row.name || '').toUpperCase(),
-                        brand: (row.Brand || row.brand || '').toUpperCase(),
-                        price: parseFloat(row.Price || row.price) || 0,
-                        unit: (row.Unit || row.unit || 'PC').toUpperCase(),
-                        supplier: (row.Supplier || row.supplier || '').toUpperCase(),
-                        updatedAt: serverTimestamp()
-                    };
-                    if (material.name) {
-                        const newDoc = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), material);
-                        items.push({id: newDoc.id, ...material});
+                try {
+                    const bstr = evt.target.result;
+                    const wb = XLSX.read(bstr, { type: 'binary' });
+                    const wsname = wb.SheetNames[0];
+                    const ws = wb.Sheets[wsname];
+                    const rawData = XLSX.utils.sheet_to_json(ws);
+                    
+                    let count = 0;
+                    for (const row of rawData) {
+                        // Support various naming conventions for headers
+                        const name = (row.Material || row.name || row.ITEM || row.MaterialName || '').toString().trim().toUpperCase();
+                        const price = parseFloat(row.Price || row.price || row.PRICE || row.Cost || 0);
+                        const unit = (row.Unit || row.unit || row.UNIT || 'PC').toString().trim().toUpperCase();
+                        const brand = (row.Brand || row.brand || row.BRAND || '').toString().trim().toUpperCase();
+                        const supplier = (row.Supplier || row.supplier || row.SUPPLIER || '').toString().trim().toUpperCase();
+
+                        if (name && !isNaN(price)) {
+                            const nextIdNo = items.length > 0 ? Math.max(...items.map(i => parseInt(i.idNo) || 0)) + 1 : 1;
+                            const material = {
+                                idNo: nextIdNo,
+                                name, brand, price, unit, supplier,
+                                updatedAt: serverTimestamp()
+                            };
+                            const newDoc = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), material);
+                            items.push({id: newDoc.id, ...material});
+                            count++;
+                        }
                     }
+                    if (count > 0) {
+                        createLog('ADD', `EXCEL IMPORT (${count} ITEMS)`, '', '');
+                        refreshData();
+                    } else {
+                        alert("No valid items found. Check column headers: Material, Price, Unit.");
+                    }
+                } catch (err) {
+                    console.error("Excel processing error:", err);
+                    alert("Error processing file. Ensure it's a valid Excel sheet.");
                 }
-                createLog('ADD', `EXCEL IMPORT (${data.length} ITEMS)`, '', '');
-                refreshData();
                 e.target.value = '';
             };
             reader.readAsBinaryString(file);
         };
 
         document.getElementById('searchInput').oninput = render;
-        window.handlePrint = () => window.print();
+
+        window.handlePrint = () => {
+            if (isSelectionMode && selectedIds.size === 0) {
+                alert("Selection mode is active but no items are selected. Please select items or exit selection mode to print all.");
+                return;
+            }
+            window.print();
+        };
+
         window.handleLogout = () => location.reload();
         window.refreshData = refreshData;
         lucide.createIcons();
