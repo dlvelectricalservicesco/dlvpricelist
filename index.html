@@ -57,9 +57,10 @@
             .no-print { display: none !important; } 
             body.selection-active-print tr:not(.selected-row):not(.header-row) { display: none !important; }
             .selected-row { background-color: white !important; }
-            /* Force table to use full width and hide the checkbox column space */
             table { width: 100% !important; border-collapse: collapse !important; }
             th:first-child, td:first-child { display: none !important; }
+            /* Force Brand/Supplier columns to be visible during print */
+            .md\:table-cell { display: table-cell !important; }
         }
     </style>
 </head>
@@ -98,7 +99,6 @@
     </header>
 
     <main class="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
-        <!-- Message Board -->
         <div id="messageBoard" class="mb-6 bg-gradient-to-br from-indigo-600 via-blue-600 to-blue-700 rounded-2xl p-5 sm:p-7 shadow-xl text-white relative overflow-hidden shine-effect">
             <div class="relative z-10">
                 <div class="flex items-center justify-between mb-3">
@@ -149,7 +149,7 @@
                             <th id="selectHeader" class="hidden px-3 py-4 w-10 no-print"></th>
                             <th class="px-4 py-4 w-16 cursor-pointer" onclick="handleSort('idNo')">ID</th>
                             <th class="px-4 py-4 cursor-pointer" onclick="handleSort('name')">Material</th>
-                            <th class="hidden md:table-cell px-4 py-4">Brand</th>
+                            <th class="md:table-cell px-4 py-4">Brand/Supplier</th>
                             <th class="px-4 py-4 text-right cursor-pointer" onclick="handleSort('price')">Price</th>
                             <th class="admin-only-header hidden px-4 py-4 text-right no-print">Actions</th>
                         </tr>
@@ -160,7 +160,6 @@
         </div>
     </main>
 
-    <!-- Activity Logs Modal -->
     <div id="logsModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div class="modal-content bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[80vh]">
             <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
@@ -177,7 +176,6 @@
         </div>
     </div>
 
-    <!-- Login Modal -->
     <div id="loginModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div id="loginContent" class="modal-content bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl">
             <h3 class="text-lg font-black uppercase mb-4 text-center">Admin access</h3>
@@ -193,7 +191,6 @@
         </div>
     </div>
 
-    <!-- Confirmation Modal (Generic) -->
     <div id="confirmModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div class="modal-content bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl text-center">
             <div id="confirmIcon" class="mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4"></div>
@@ -217,7 +214,6 @@
         </div>
     </div>
 
-    <!-- Add/Edit Item Modal -->
     <div id="itemModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div class="modal-content bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -330,7 +326,7 @@
                 const date = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'Just now';
                 let colorClass = log.action === 'ADD' ? 'bg-green-100 text-green-700' : log.action === 'EDIT' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700';
                 return `
-                    <div ${log.action !== 'DELETE' ? `onclick="navigateToItem('${log.idNo}')"` : ''} 
+                    <div ${log.action !== 'DELETE' ? `onclick="navigateToItem('${log.idNo}', '${log.itemName.replace(/'/g, "\\'")}')"` : ''} 
                          class="p-3 bg-white border border-slate-100 rounded-xl flex items-center justify-between group ${log.action !== 'DELETE' ? 'cursor-pointer hover:border-blue-200 hover:shadow-md' : 'opacity-80'} transition-all">
                         <div class="flex items-center gap-3">
                             <span class="text-[8px] font-black px-2 py-0.5 rounded ${colorClass}">${log.action}</span>
@@ -349,14 +345,19 @@
             lucide.createIcons();
         };
 
-        window.navigateToItem = (idNo) => {
+        window.navigateToItem = (idNo, itemName) => {
             closeModal('logsModal');
-            document.getElementById('searchInput').value = idNo;
+            // If it's an excel import log, we might not have a single idNo.
+            // Search by name if idNo is missing or generic.
+            const queryValue = (idNo && idNo !== 'MSG' && idNo !== '') ? idNo : itemName.split(' (')[0]; 
+            document.getElementById('searchInput').value = queryValue;
             render();
+            
             setTimeout(() => {
                 const rows = document.querySelectorAll('#materialsTableBody tr');
                 for (let row of rows) {
-                    if (row.innerText.includes(`#${idNo}`)) {
+                    // Match either the exact ID or the item name text
+                    if (row.innerText.includes(`#${queryValue}`) || row.innerText.includes(itemName.toUpperCase())) {
                         row.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         row.classList.add('item-highlight');
                         setTimeout(() => row.classList.remove('item-highlight'), 3000);
@@ -456,8 +457,11 @@
             document.getElementById('selectionInfo').classList.toggle('hidden', !isSelectionMode);
             document.getElementById('selectHeader').classList.toggle('hidden', !isSelectionMode);
             document.getElementById('adminBulkActions').classList.toggle('hidden', !(isSelectionMode && isAdmin));
+            
+            // AUTOMATIC CLEAR ON CANCEL
             if (!isSelectionMode) {
                 selectedIds.clear();
+                document.getElementById('selectedCount').textContent = '0';
                 document.body.classList.remove('selection-active-print');
             } else {
                 document.body.classList.add('selection-active-print');
@@ -513,21 +517,25 @@
             const term = document.getElementById('searchInput').value.toLowerCase();
             const filtered = items.filter(i => 
                 (i.name || '').toLowerCase().includes(term) || 
-                (i.idNo || '').toString().includes(term)
+                (i.idNo || '').toString().includes(term) ||
+                (i.brand || '').toLowerCase().includes(term) ||
+                (i.supplier || '').toLowerCase().includes(term)
             ).sort((a, b) => {
                 let v1 = a[sortConfig.key], v2 = b[sortConfig.key];
                 if (sortConfig.key === 'idNo' || sortConfig.key === 'price') { v1 = parseFloat(v1) || 0; v2 = parseFloat(v2) || 0; }
                 return sortConfig.direction === 'asc' ? (v1 > v2 ? 1 : -1) : (v1 < v2 ? 1 : -1);
             });
 
-            document.getElementById('materialsTableBody').innerHTML = filtered.map(i => `
+            document.getElementById('materialsTableBody').innerHTML = filtered.map(i => {
+                const brandInfo = [i.brand, i.supplier].filter(Boolean).join(' / ') || '-';
+                return `
                 <tr onclick="toggleRowSelection('${i.id}')" class="${selectedIds.has(i.id) ? 'selected-row' : 'hover:bg-slate-50'} transition-all cursor-pointer">
                     <td class="${isSelectionMode ? '' : 'hidden'} px-3 py-4 no-print">
                         <div class="w-4 h-4 border rounded ${selectedIds.has(i.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}"></div>
                     </td>
                     <td class="px-4 py-4 text-blue-600 font-mono font-black">#${i.idNo}</td>
                     <td class="px-4 py-4 font-bold uppercase">${i.name}</td>
-                    <td class="hidden md:table-cell px-4 py-4 text-slate-400 font-bold uppercase">${i.brand || '-'}</td>
+                    <td class="md:table-cell px-4 py-4 text-slate-400 font-bold uppercase">${brandInfo}</td>
                     <td class="px-4 py-4 text-right">
                         <div class="price-grid">
                             <span class="text-[8px] font-black text-slate-300">₱</span>
@@ -542,7 +550,7 @@
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
             document.getElementById('tableContainer').classList.remove('hidden');
             lucide.createIcons();
         };
