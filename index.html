@@ -59,7 +59,6 @@
             .selected-row { background-color: white !important; }
             table { width: 100% !important; border-collapse: collapse !important; }
             th:first-child, td:first-child { display: none !important; }
-            /* Force Brand/Supplier columns to be visible during print */
             .md\:table-cell { display: table-cell !important; }
         }
     </style>
@@ -325,6 +324,11 @@
             container.innerHTML = logs.map(log => {
                 const date = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'Just now';
                 let colorClass = log.action === 'ADD' ? 'bg-green-100 text-green-700' : log.action === 'EDIT' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700';
+                
+                // If it's a range of IDs (Bulk Upload)
+                const isRange = log.idNo && log.idNo.toString().includes('-');
+                const displayId = isRange ? log.idNo : (log.idNo || '??');
+
                 return `
                     <div ${log.action !== 'DELETE' ? `onclick="navigateToItem('${log.idNo}', '${log.itemName.replace(/'/g, "\\'")}')"` : ''} 
                          class="p-3 bg-white border border-slate-100 rounded-xl flex items-center justify-between group ${log.action !== 'DELETE' ? 'cursor-pointer hover:border-blue-200 hover:shadow-md' : 'opacity-80'} transition-all">
@@ -332,7 +336,7 @@
                             <span class="text-[8px] font-black px-2 py-0.5 rounded ${colorClass}">${log.action}</span>
                             <div>
                                 <p class="text-[10px] font-black uppercase text-slate-800 leading-tight">${log.itemName}</p>
-                                <p class="text-[9px] font-bold text-slate-400 mt-0.5 uppercase">ID: #${log.idNo || '??'}</p>
+                                <p class="text-[9px] font-bold text-slate-400 mt-0.5 uppercase">ID: #${displayId}</p>
                             </div>
                         </div>
                         <div class="text-right flex items-center gap-2">
@@ -347,17 +351,32 @@
 
         window.navigateToItem = (idNo, itemName) => {
             closeModal('logsModal');
-            // If it's an excel import log, we might not have a single idNo.
-            // Search by name if idNo is missing or generic.
-            const queryValue = (idNo && idNo !== 'MSG' && idNo !== '') ? idNo : itemName.split(' (')[0]; 
-            document.getElementById('searchInput').value = queryValue;
-            render();
+            
+            // If the ID is a range (Bulk Upload like "45-60")
+            if (idNo && idNo.includes('-')) {
+                const [start, end] = idNo.split('-').map(n => parseInt(n));
+                const term = document.getElementById('searchInput');
+                term.value = ""; // Clear search so we can filter logic manually
+                
+                // Show items in that ID range
+                const rangeItems = items.filter(i => {
+                    const idInt = parseInt(i.idNo);
+                    return idInt >= start && idInt <= end;
+                });
+                
+                // To keep the app behavior simple, we just search for the start ID to jump there
+                term.value = start.toString();
+                render();
+            } else {
+                const queryValue = (idNo && idNo !== 'MSG' && idNo !== '??' && idNo !== '') ? idNo : itemName.split(' (')[0]; 
+                document.getElementById('searchInput').value = queryValue;
+                render();
+            }
             
             setTimeout(() => {
                 const rows = document.querySelectorAll('#materialsTableBody tr');
                 for (let row of rows) {
-                    // Match either the exact ID or the item name text
-                    if (row.innerText.includes(`#${queryValue}`) || row.innerText.includes(itemName.toUpperCase())) {
+                    if (row.innerText.includes(`#${idNo.split('-')[0]}`) || row.innerText.includes(itemName.toUpperCase())) {
                         row.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         row.classList.add('item-highlight');
                         setTimeout(() => row.classList.remove('item-highlight'), 3000);
@@ -458,7 +477,6 @@
             document.getElementById('selectHeader').classList.toggle('hidden', !isSelectionMode);
             document.getElementById('adminBulkActions').classList.toggle('hidden', !(isSelectionMode && isAdmin));
             
-            // AUTOMATIC CLEAR ON CANCEL
             if (!isSelectionMode) {
                 selectedIds.clear();
                 document.getElementById('selectedCount').textContent = '0';
@@ -633,6 +651,8 @@
                             async () => {
                                 document.getElementById('loadingState').classList.remove('hidden');
                                 let nextIdNo = items.length > 0 ? Math.max(...items.map(i => parseInt(i.idNo) || 0)) + 1 : 1;
+                                const firstId = nextIdNo;
+                                
                                 for (const row of validItems) {
                                     const material = {
                                         idNo: nextIdNo++,
@@ -645,7 +665,10 @@
                                     };
                                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), material);
                                 }
-                                createLog('ADD', `EXCEL IMPORT (${validItems.length} ITEMS)`, '', '');
+                                
+                                const lastId = nextIdNo - 1;
+                                // Log the range of IDs created for better searchability
+                                createLog('ADD', `EXCEL IMPORT (${validItems.length} ITEMS)`, '', `${firstId}-${lastId}`);
                                 refreshData();
                             }
                         );
