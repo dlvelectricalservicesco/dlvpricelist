@@ -19,14 +19,14 @@
         .price-grid { display: grid; grid-template-columns: 12px 1fr 35px; align-items: baseline; gap: 1px; width: 100%; max-width: 140px; margin-left: auto; }
         .price-number { text-align: right; font-variant-numeric: tabular-nums; }
 
-        /* Announcement Board Enhancements */
-        #boardContent { white-space: pre-wrap; word-break: break-word; }
-        
-        @keyframes pulse-soft {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.05); opacity: 0.8; }
+        @keyframes highlight-fade {
+            0% { background-color: #fef08a; transform: scale(1.02); }
+            100% { background-color: transparent; transform: scale(1); }
         }
-        .animate-pulse-soft { animation: pulse-soft 2s infinite ease-in-out; }
+        .item-highlight { animation: highlight-fade 2.5s ease-out forwards; z-index: 10; position: relative; }
+
+        .log-scroll::-webkit-scrollbar { width: 4px; }
+        .log-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
 
         @keyframes shine {
             0% { left: -100%; }
@@ -45,22 +45,9 @@
             animation: shine 6s infinite ease-in-out;
         }
 
-        .overflow-x-auto { -webkit-overflow-scrolling: touch; }
-        .overflow-x-auto::-webkit-scrollbar { height: 4px; }
-        .overflow-x-auto::-webkit-scrollbar-track { background: #f1f1f1; }
-        .overflow-x-auto::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-
-        tr { transform: translateZ(0); }
-
         @media print { 
             .no-print { display: none !important; } 
-            #tableContainer { box-shadow: none; border: none; width: 100%; } 
-            body { background-color: white; } 
-            main { padding: 0; max-width: 100%; }
-            #messageBoard { border: 1px solid #e2e8f0; color: black !important; background: white !important; box-shadow: none; margin-bottom: 20px; }
-            #messageBoard * { color: black !important; }
             body.selection-active-print tr:not(.selected-row):not(.header-row) { display: none !important; }
-            .selected-row { background-color: transparent !important; }
         }
     </style>
 </head>
@@ -81,17 +68,17 @@
                     <i data-lucide="check-square" class="w-4 h-4 sm:hidden"></i>
                     <span id="selectionLabel" class="hidden sm:inline uppercase text-[10px] font-black">Selection Mode</span>
                 </button>
-                <button onclick="handlePrint()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200" title="Print List">
-                    <i data-lucide="printer" class="w-4 h-4 sm:w-5 sm:h-5"></i>
-                </button>
 
                 <div id="adminControls" class="hidden flex items-center gap-1 sm:gap-3 border-l border-slate-200 pl-2 sm:pl-3">
+                    <button onclick="openModal('logsModal')" class="p-2 text-slate-500 hover:text-blue-600 transition" title="View History">
+                        <i data-lucide="history" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                    </button>
                     <input type="file" id="excelInput" accept=".xlsx, .xls" class="hidden" onchange="handleExcelUpload(event)">
-                    <button onclick="document.getElementById('excelInput').click()" class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition">
-                        <i data-lucide="file-up" class="w-4 h-4"></i><span class="hidden lg:inline uppercase text-[10px] font-black">Import</span>
+                    <button onclick="document.getElementById('excelInput').click()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition">
+                        <i data-lucide="file-up" class="w-4 h-4"></i>
                     </button>
                     <button onclick="openModal('itemModal', 'add')" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 transition">Add</button>
-                    <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-red-500 transition"><i data-lucide="log-out" class="w-4 h-4 sm:w-5 sm:h-5"></i></button>
+                    <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-red-500 transition"><i data-lucide="log-out" class="w-4 h-4"></i></button>
                 </div>
                 <button id="loginBtn" onclick="openModal('loginModal')" class="text-[10px] font-black uppercase text-slate-400 hover:text-blue-600 px-2 transition-colors">Admin</button>
             </div>
@@ -99,65 +86,54 @@
     </header>
 
     <main class="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
-        <!-- Enhanced Announcement Board -->
+        <!-- Message Board -->
         <div id="messageBoard" class="mb-6 bg-gradient-to-br from-indigo-600 via-blue-600 to-blue-700 rounded-2xl p-5 sm:p-7 shadow-xl text-white relative overflow-hidden shine-effect">
-            <div class="absolute -top-6 -right-6 opacity-10">
-                <i data-lucide="megaphone" class="w-32 h-32 rotate-12"></i>
-            </div>
             <div class="relative z-10">
                 <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2 animate-pulse-soft">
-                        <span class="relative flex h-2 w-2">
-                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                          <span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
-                        </span>
-                        <span class="text-[10px] font-black uppercase tracking-widest bg-yellow-500 text-blue-900 px-2.5 py-1 rounded-full shadow-sm">Attention Required</span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] font-black uppercase tracking-widest bg-yellow-500 text-blue-900 px-2.5 py-1 rounded-full shadow-sm">Updates</span>
                     </div>
-                    <button id="editMessageBtn" onclick="openModal('messageModal')" class="hidden bg-white/20 hover:bg-white/30 p-2 rounded-xl transition no-print backdrop-blur-md">
+                    <button id="editMessageBtn" onclick="openMessageModal()" class="hidden bg-white/20 hover:bg-white/30 p-2 rounded-xl transition no-print backdrop-blur-md">
                         <i data-lucide="edit-3" class="w-4 h-4"></i>
                     </button>
                 </div>
-                <h2 id="boardTitle" class="text-xl sm:text-2xl font-black uppercase mb-2 tracking-tight drop-shadow-md">Latest Updates</h2>
-                <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10 shadow-inner">
-                    <p id="boardContent" class="text-sm sm:text-base text-white font-semibold leading-relaxed">Loading message...</p>
-                </div>
-                <div id="boardDate" class="mt-4 text-[10px] font-bold uppercase tracking-widest opacity-80 flex items-center gap-2">
-                    <i data-lucide="clock" class="w-3.5 h-3.5"></i>
-                    <span>Updated: --</span>
+                <h2 id="boardTitle" class="text-xl sm:text-2xl font-black uppercase mb-2 tracking-tight">Latest Updates</h2>
+                <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10">
+                    <!-- whitespace-pre-wrap ensures line breaks (\n) are rendered -->
+                    <p id="boardContent" class="text-sm font-semibold whitespace-pre-wrap leading-relaxed">Loading message...</p>
                 </div>
             </div>
         </div>
 
         <div id="selectionInfo" class="hidden no-print mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center">
-            <div class="flex items-center gap-2">
-                <i data-lucide="info" class="w-4 h-4 text-blue-600"></i>
-                <p class="text-[10px] text-blue-700 font-bold uppercase"><span id="selectedCount">0</span> items selected for printing</p>
-            </div>
-            <button onclick="clearSelection()" class="text-[10px] text-blue-600 font-black uppercase hover:underline">Clear Selection</button>
+            <p class="text-[10px] text-blue-700 font-bold uppercase"><span id="selectedCount">0</span> items selected for printing</p>
+            <button onclick="clearSelection()" class="text-[10px] text-blue-600 font-black uppercase">Clear</button>
         </div>
 
-        <div class="mb-4 no-print">
-            <div class="relative w-full">
+        <div class="mb-4 no-print flex gap-2">
+            <div class="relative flex-1">
                 <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
                 <input type="text" id="searchInput" placeholder="SEARCH MATERIALS OR #ID..." class="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl outline-none text-sm uppercase shadow-sm focus:border-blue-500 transition-all bg-white">
             </div>
+            <button onclick="handlePrint()" class="px-4 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+                <i data-lucide="printer" class="w-4 h-4 text-slate-600"></i>
+            </button>
         </div>
 
         <div id="loadingState" class="text-center py-20">
             <div class="animate-spin h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4 rounded-full"></div>
-            <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Syncing Materials...</p>
+            <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Syncing...</p>
         </div>
 
         <div id="tableContainer" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="overflow-x-auto w-full">
-                <table id="materialsTable" class="w-full text-left border-collapse min-w-[600px] sm:min-w-full">
+                <table id="materialsTable" class="w-full text-left border-collapse">
                     <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest">
                         <tr class="header-row">
                             <th id="selectHeader" class="hidden px-3 py-4 w-10 no-print"></th>
                             <th class="px-4 py-4 w-16 cursor-pointer" onclick="handleSort('idNo')">ID</th>
                             <th class="px-4 py-4 cursor-pointer" onclick="handleSort('name')">Material</th>
-                            <th class="hidden md:table-cell px-4 py-4 cursor-pointer" onclick="handleSort('brand')">Brand</th>
-                            <th class="hidden lg:table-cell px-4 py-4 cursor-pointer" onclick="handleSort('supplier')">Supplier</th>
+                            <th class="hidden md:table-cell px-4 py-4">Brand</th>
                             <th class="px-4 py-4 text-right cursor-pointer" onclick="handleSort('price')">Price</th>
                             <th class="admin-only-header hidden px-4 py-4 text-right no-print">Actions</th>
                         </tr>
@@ -168,59 +144,56 @@
         </div>
     </main>
 
+    <!-- Activity Logs Modal (Admin Only) -->
+    <div id="logsModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div class="modal-content bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[80vh]">
+            <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+                <div class="flex items-center gap-2">
+                    <div class="bg-blue-600 p-1.5 rounded-lg text-white"><i data-lucide="history" class="w-4 h-4"></i></div>
+                    <h3 class="text-sm font-black uppercase tracking-tight">Admin Activity Logs</h3>
+                </div>
+                <button onclick="closeModal('logsModal')" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div id="logsList" class="p-4 overflow-y-auto log-scroll flex-1 space-y-3 bg-white">
+                <!-- Logs will be rendered here -->
+            </div>
+            <div class="p-4 bg-slate-50 border-t border-slate-100 text-center">
+                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Showing recent 50 activities</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Modals -->
     <div id="loginModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div class="modal-content bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-black uppercase">Admin access</h3>
-                <button onclick="closeModal('loginModal')" class="text-slate-400 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
-            </div>
+            <h3 class="text-lg font-black uppercase mb-4 text-center">Admin access</h3>
             <form onsubmit="event.preventDefault(); submitLogin();">
-                <input type="password" id="loginPassword" placeholder="PASSWORD" class="w-full p-3 border border-slate-200 rounded-lg mb-4 uppercase text-xs outline-none focus:border-blue-500">
-                <button type="submit" id="loginSubmitBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold uppercase text-xs">Verify</button>
+                <input type="password" id="loginPassword" placeholder="PASSWORD" class="w-full p-3 border border-slate-200 rounded-lg mb-4 text-xs outline-none focus:border-blue-500">
+                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold uppercase text-xs">Verify</button>
             </form>
         </div>
     </div>
 
-    <!-- Message Edit Modal -->
     <div id="messageModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-        <div class="modal-content bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-black uppercase">Edit Message Board</h3>
-                <button onclick="closeModal('messageModal')" class="text-slate-400 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
-            </div>
-            <form id="messageForm" onsubmit="event.preventDefault(); saveBoardMessage();">
-                <div class="space-y-4">
-                    <div>
-                        <label class="text-[9px] font-bold text-slate-400 uppercase">Title</label>
-                        <input type="text" id="inputBoardTitle" class="w-full p-2.5 border border-slate-200 rounded-lg uppercase text-xs" placeholder="E.G. PRICE UPDATE">
-                    </div>
-                    <div>
-                        <label class="text-[9px] font-bold text-slate-400 uppercase">Message Content</label>
-                        <textarea id="inputBoardContent" rows="3" class="w-full p-2.5 border border-slate-200 rounded-lg uppercase text-xs" placeholder="TYPE MESSAGE HERE..."></textarea>
-                    </div>
-                    <button type="submit" id="saveBoardBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold uppercase text-xs">Update Board</button>
-                </div>
+        <div class="modal-content bg-white p-6 rounded-xl w-full max-w-sm">
+            <h3 class="text-lg font-black uppercase mb-4">Edit Board</h3>
+            <form onsubmit="event.preventDefault(); saveBoardMessage();" class="space-y-4">
+                <input type="text" id="inputBoardTitle" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs uppercase" placeholder="TITLE">
+                <textarea id="inputBoardContent" rows="5" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs uppercase" placeholder="MESSAGE (USE ENTER FOR NEW LINES)"></textarea>
+                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold uppercase text-xs">Update Board</button>
             </form>
         </div>
     </div>
 
     <div id="itemModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-        <div class="modal-content bg-white p-6 rounded-xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-6">
-                <h3 id="modalTitle" class="text-lg font-black uppercase">Material Details</h3>
-                <button onclick="closeModal('itemModal')" class="text-slate-400 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
-            </div>
+        <div class="modal-content bg-white p-6 rounded-xl w-full max-w-md shadow-2xl">
+            <h3 id="modalTitle" class="text-lg font-black uppercase mb-6">Material Details</h3>
             <form id="itemForm" class="space-y-4">
                 <input type="hidden" id="itemId">
                 <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <p class="text-[9px] text-slate-400 font-bold uppercase mb-1">Assigned ID</p>
                     <p id="displayIdNo" class="text-xs font-mono font-bold text-slate-700">NEW</p>
                 </div>
-                <div>
-                    <label class="text-[9px] font-bold text-slate-400 uppercase ml-1">Description</label>
-                    <input type="text" id="itemName" placeholder="ITEM NAME" class="w-full p-2.5 border border-slate-200 rounded-lg uppercase text-xs" required>
-                </div>
+                <input type="text" id="itemName" placeholder="ITEM NAME" class="w-full p-2.5 border border-slate-200 rounded-lg uppercase text-xs" required>
                 <div class="grid grid-cols-2 gap-3">
                     <input type="text" id="itemBrand" placeholder="BRAND" class="w-full p-2.5 border border-slate-200 rounded-lg uppercase text-xs">
                     <input type="text" id="itemSupplier" placeholder="SUPPLIER" class="w-full p-2.5 border border-slate-200 rounded-lg uppercase text-xs">
@@ -229,7 +202,7 @@
                     <input type="number" step="0.01" id="itemPrice" placeholder="PRICE" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs" required>
                     <input type="text" id="itemUnit" placeholder="UNIT" class="w-full p-2.5 border border-slate-200 rounded-lg uppercase text-xs" required>
                 </div>
-                <button type="submit" id="saveBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-black uppercase text-xs shadow-lg shadow-blue-200 active:scale-[0.98] transition-transform mt-2">Save Material</button>
+                <button type="submit" id="saveBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-black uppercase text-xs">Save Material</button>
             </form>
         </div>
     </div>
@@ -237,7 +210,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, serverTimestamp, query } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, serverTimestamp, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyDhflO6H-PJFOu4Kk_9nHaly_IJ8wjZpz0",
@@ -254,156 +227,177 @@
         const appId = 'dlv-v1';
 
         let items = [];
+        let logs = [];
         let selectedIds = new Set();
         let isAdmin = false;
         let isSelectionMode = false;
         let sortConfig = { key: 'idNo', direction: 'asc' }; 
-        let searchTimeout;
 
-        const fetchBoardMessage = async () => {
+        // Activity Logging Helper
+        const createLog = async (action, itemName, itemId, idNo) => {
+            if (!isAdmin) return;
             try {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'messageBoard');
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    document.getElementById('boardTitle').textContent = data.title || 'Latest Updates';
-                    document.getElementById('boardContent').textContent = data.content || 'Welcome to DLV Materials Pricelist.';
-                    if (data.updatedAt) {
-                        const date = data.updatedAt.toDate();
-                        document.getElementById('boardDate').innerHTML = `<i data-lucide="clock" class="w-3.5 h-3.5"></i> <span>Updated: ${date.toLocaleDateString()} ${date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>`;
-                        lucide.createIcons();
-                    }
-                }
-            } catch (err) { console.error("Error fetching board:", err); }
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), {
+                    action, itemName, itemId: itemId || '', idNo: idNo || '', timestamp: serverTimestamp()
+                });
+            } catch (err) { console.error("Log error:", err); }
         };
 
-        window.saveBoardMessage = async () => {
-            const btn = document.getElementById('saveBoardBtn');
-            btn.disabled = true;
-            btn.textContent = "SAVING...";
+        const fetchLogs = async () => {
+            if (!isAdmin) return;
             try {
-                const title = document.getElementById('inputBoardTitle').value.toUpperCase();
-                const content = document.getElementById('inputBoardContent').value.toUpperCase();
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'messageBoard'), {
-                    title, content, updatedAt: serverTimestamp()
-                });
-                await fetchBoardMessage();
-                closeModal('messageModal');
-            } catch (err) { alert(err.message); }
-            finally { 
-                btn.disabled = false; 
-                btn.textContent = "UPDATE BOARD";
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'logs'));
+                const snap = await getDocs(q);
+                logs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                          .sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0))
+                          .slice(0, 50);
+                renderLogs();
+            } catch (err) { console.error("Fetch logs error:", err); }
+        };
+
+        const renderLogs = () => {
+            const container = document.getElementById('logsList');
+            if (logs.length === 0) {
+                container.innerHTML = `<div class="text-center py-10 text-slate-400 text-[10px] font-bold uppercase">No records yet</div>`;
+                return;
+            }
+            container.innerHTML = logs.map(log => {
+                const date = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'Just now';
+                let colorClass = log.action === 'ADD' ? 'bg-green-100 text-green-700' : log.action === 'EDIT' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700';
+                const isNavigable = log.action !== 'DELETE';
+
+                return `
+                    <div ${isNavigable ? `onclick="navigateToItem('${log.idNo}')"` : ''} 
+                         class="p-3 bg-white border border-slate-100 rounded-xl flex items-center justify-between group ${isNavigable ? 'cursor-pointer hover:border-blue-200 hover:shadow-md' : 'opacity-80'} transition-all">
+                        <div class="flex items-center gap-3">
+                            <span class="text-[8px] font-black px-2 py-0.5 rounded ${colorClass}">${log.action}</span>
+                            <div>
+                                <p class="text-[10px] font-black uppercase text-slate-800 leading-tight">${log.itemName}</p>
+                                <p class="text-[9px] font-bold text-slate-400 mt-0.5 uppercase">ID: #${log.idNo || '??'}</p>
+                            </div>
+                        </div>
+                        <div class="text-right flex items-center gap-2">
+                            <p class="text-[8px] font-bold text-slate-400 uppercase">${date}</p>
+                            ${isNavigable ? `<i data-lucide="chevron-right" class="w-3 h-3 text-slate-300 group-hover:text-blue-500 transition-colors"></i>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        };
+
+        window.navigateToItem = (idNo) => {
+            closeModal('logsModal');
+            document.getElementById('searchInput').value = idNo;
+            render();
+            
+            setTimeout(() => {
+                const rows = document.querySelectorAll('#materialsTableBody tr');
+                for (let row of rows) {
+                    if (row.innerText.includes(`#${idNo}`)) {
+                        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        row.classList.add('item-highlight');
+                        setTimeout(() => row.classList.remove('item-highlight'), 3000);
+                        break;
+                    }
+                }
+            }, 300);
+        };
+
+        const fetchBoardMessage = async () => {
+            const docSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'messageBoard'));
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                document.getElementById('boardTitle').textContent = data.title;
+                document.getElementById('boardContent').textContent = data.content;
+                // Pre-populate modal inputs
+                document.getElementById('inputBoardTitle').value = data.title;
+                document.getElementById('inputBoardContent').value = data.content;
             }
         };
 
+        window.openMessageModal = () => {
+            if (!isAdmin) return;
+            openModal('messageModal');
+        };
+
+        window.saveBoardMessage = async () => {
+            const title = document.getElementById('inputBoardTitle').value.toUpperCase();
+            const content = document.getElementById('inputBoardContent').value.toUpperCase();
+            
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'messageBoard'), {
+                title,
+                content,
+                updatedAt: serverTimestamp()
+            });
+            fetchBoardMessage();
+            closeModal('messageModal');
+            createLog('EDIT', `BOARD UPDATE: ${title}`, 'board', 'MSG');
+        };
+
         const refreshData = async () => {
-            const loadingEl = document.getElementById('loadingState');
-            const tableEl = document.getElementById('tableContainer');
-            loadingEl.classList.remove('hidden');
-            tableEl.classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('tableContainer').classList.add('hidden');
             try {
                 fetchBoardMessage();
-                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'materials'));
-                const snap = await getDocs(q);
+                if (isAdmin) fetchLogs();
+                const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'materials'));
                 items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 render();
             } catch (err) { console.error(err); }
-            finally { loadingEl.classList.add('hidden'); }
+            finally { document.getElementById('loadingState').classList.add('hidden'); }
         };
 
         onAuthStateChanged(auth, (user) => {
-            if (user) refreshData();
-            else signInAnonymously(auth);
+            if (user) refreshData(); else signInAnonymously(auth);
         });
 
-        const getNextIdNo = () => {
-            const validIds = items.map(i => parseInt(i.idNo)).filter(n => !isNaN(n));
-            return validIds.length > 0 ? Math.max(...validIds) + 1 : 1;
-        };
-
         window.openModal = (id, mode = 'add') => {
+            if (id === 'logsModal' && !isAdmin) return;
             const modal = document.getElementById(id);
             modal.classList.add('active');
             if (id === 'itemModal' && mode === 'add') {
                 document.getElementById('itemForm').reset();
                 document.getElementById('itemId').value = "";
-                document.getElementById('displayIdNo').textContent = "NEW ID #" + getNextIdNo();
-            } else if (id === 'loginModal') {
-                setTimeout(() => document.getElementById('loginPassword').focus(), 300);
-            } else if (id === 'messageModal') {
-                document.getElementById('inputBoardTitle').value = document.getElementById('boardTitle').textContent;
-                document.getElementById('inputBoardContent').value = document.getElementById('boardContent').textContent;
+                const nextId = items.length > 0 ? Math.max(...items.map(i => parseInt(i.idNo) || 0)) + 1 : 1;
+                document.getElementById('displayIdNo').textContent = "NEW ID #" + nextId;
+            } else if (id === 'logsModal') {
+                fetchLogs();
             }
         };
 
         window.closeModal = (id) => document.getElementById(id).classList.remove('active');
 
         window.submitLogin = () => {
-            const pass = document.getElementById('loginPassword').value;
-            const btn = document.getElementById('loginSubmitBtn');
-            if (pass === 'admin') {
+            if (document.getElementById('loginPassword').value === 'admin') {
                 isAdmin = true;
                 document.getElementById('adminControls').classList.remove('hidden');
                 document.getElementById('loginBtn').classList.add('hidden');
                 document.getElementById('editMessageBtn').classList.remove('hidden');
-                closeModal('loginModal');
                 document.querySelectorAll('.admin-only-header').forEach(el => el.classList.remove('hidden'));
-                setTimeout(() => render(), 100);
-            } else {
-                btn.classList.add('bg-red-500');
-                setTimeout(() => btn.classList.remove('bg-red-500'), 500);
+                closeModal('loginModal');
+                render();
+                fetchLogs();
             }
-        };
-
-        window.handleExcelUpload = (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                const json = XLSX.utils.sheet_to_json(worksheet);
-
-                if (confirm(`Import ${json.length} items? This might take a moment.`)) {
-                    let nextId = getNextIdNo();
-                    for (const row of json) {
-                        const material = {
-                            idNo: nextId++,
-                            name: (row.Material || row.Name || row.description || "").toString().toUpperCase(),
-                            brand: (row.Brand || "").toString().toUpperCase(),
-                            supplier: (row.Supplier || "").toString().toUpperCase(),
-                            price: parseFloat(row.Price || row.price) || 0,
-                            unit: (row.Unit || row.unit || "PC").toString().toUpperCase(),
-                            updatedAt: serverTimestamp()
-                        };
-                        if (material.name) {
-                            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), material);
-                        }
-                    }
-                    alert("Import completed successfully.");
-                    refreshData();
-                }
-                event.target.value = '';
-            };
-            reader.readAsArrayBuffer(file);
         };
 
         window.toggleSelectionMode = () => {
             isSelectionMode = !isSelectionMode;
+            document.getElementById('selectionLabel').textContent = isSelectionMode ? 'Cancel Selection' : 'Selection Mode';
             document.getElementById('selectionInfo').classList.toggle('hidden', !isSelectionMode);
             document.getElementById('selectHeader').classList.toggle('hidden', !isSelectionMode);
-            document.getElementById('selectionLabel').textContent = isSelectionMode ? 'Exit Selection' : 'Selection Mode';
-            
             if (!isSelectionMode) {
                 selectedIds.clear();
                 document.body.classList.remove('selection-active-print');
-                document.getElementById('selectedCount').textContent = "0";
             } else {
                 document.body.classList.add('selection-active-print');
             }
+            render();
+        };
+
+        window.clearSelection = () => {
+            selectedIds.clear();
+            document.getElementById('selectedCount').textContent = '0';
             render();
         };
 
@@ -414,12 +408,48 @@
             render();
         };
 
-        window.clearSelection = () => { selectedIds.clear(); document.getElementById('selectedCount').textContent = "0"; render(); };
-        
         window.handleSort = (key) => {
             sortConfig.direction = (sortConfig.key === key && sortConfig.direction === 'asc') ? 'desc' : 'asc';
             sortConfig.key = key;
             render();
+        };
+
+        const render = () => {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = items.filter(i => 
+                (i.name || '').toLowerCase().includes(term) || 
+                (i.idNo || '').toString().includes(term)
+            ).sort((a, b) => {
+                let v1 = a[sortConfig.key], v2 = b[sortConfig.key];
+                if (sortConfig.key === 'idNo' || sortConfig.key === 'price') { v1 = parseFloat(v1) || 0; v2 = parseFloat(v2) || 0; }
+                return sortConfig.direction === 'asc' ? (v1 > v2 ? 1 : -1) : (v1 < v2 ? 1 : -1);
+            });
+
+            document.getElementById('materialsTableBody').innerHTML = filtered.map(i => `
+                <tr onclick="toggleRowSelection('${i.id}')" class="${selectedIds.has(i.id) ? 'selected-row' : 'hover:bg-slate-50'} transition-all">
+                    <td class="${isSelectionMode ? '' : 'hidden'} px-3 py-4">
+                        <div class="w-4 h-4 border rounded ${selectedIds.has(i.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}"></div>
+                    </td>
+                    <td class="px-4 py-4 text-blue-600 font-mono font-black">#${i.idNo}</td>
+                    <td class="px-4 py-4 font-bold uppercase">${i.name}</td>
+                    <td class="hidden md:table-cell px-4 py-4 text-slate-400 font-bold uppercase">${i.brand || '-'}</td>
+                    <td class="px-4 py-4 text-right">
+                        <div class="price-grid">
+                            <span class="text-[8px] font-black text-slate-300">₱</span>
+                            <span class="price-number font-black text-blue-700">${Number(i.price).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                            <span class="text-[7px] text-slate-300 uppercase">/${i.unit}</span>
+                        </div>
+                    </td>
+                    <td class="${isAdmin ? '' : 'hidden'} px-4 py-4 text-right no-print">
+                        <div class="flex justify-end gap-2">
+                            <button onclick="event.stopPropagation(); editItem('${i.id}')" class="text-slate-300 hover:text-blue-600"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                            <button onclick="event.stopPropagation(); deleteItem('${i.id}')" class="text-slate-300 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('tableContainer').classList.remove('hidden');
+            lucide.createIcons();
         };
 
         window.editItem = (id) => {
@@ -430,76 +460,12 @@
             document.getElementById('itemSupplier').value = item.supplier || '';
             document.getElementById('itemPrice').value = item.price;
             document.getElementById('itemUnit').value = item.unit;
-            document.getElementById('displayIdNo').textContent = "ID #" + (item.idNo || 0);
+            document.getElementById('displayIdNo').textContent = "ID #" + item.idNo;
             openModal('itemModal', 'edit');
-        };
-
-        const render = () => {
-            requestAnimationFrame(() => {
-                const term = document.getElementById('searchInput').value.toLowerCase();
-                const filtered = items.filter(i => 
-                    (i.name || '').toLowerCase().includes(term) || 
-                    (i.brand || '').toLowerCase().includes(term) ||
-                    (i.idNo || '').toString().includes(term)
-                ).sort((a, b) => {
-                    let v1 = a[sortConfig.key], v2 = b[sortConfig.key];
-                    if (sortConfig.key === 'idNo' || sortConfig.key === 'price') {
-                        v1 = parseFloat(v1) || 0;
-                        v2 = parseFloat(v2) || 0;
-                    } else if (typeof v1 === 'string') { 
-                        v1 = v1.toLowerCase(); 
-                        v2 = v2.toLowerCase(); 
-                    }
-                    return sortConfig.direction === 'asc' ? (v1 > v2 ? 1 : -1) : (v1 < v2 ? 1 : -1);
-                });
-
-                const html = filtered.map((i) => `
-                    <tr onclick="toggleRowSelection('${i.id}')" class="transition-colors ${selectedIds.has(i.id) ? 'selected-row' : 'hover:bg-slate-50 cursor-pointer'}">
-                        <td class="${isSelectionMode ? '' : 'hidden'} px-3 py-4 no-print">
-                            <div class="w-5 h-5 border-2 rounded flex items-center justify-center ${selectedIds.has(i.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}">
-                                ${selectedIds.has(i.id) ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}
-                            </div>
-                        </td>
-                        <td class="px-4 py-4 text-blue-600 font-mono font-black">#${i.idNo}</td>
-                        <td class="px-4 py-4">
-                            <div class="font-bold text-slate-800 uppercase leading-tight">${i.name}</div>
-                            <div class="md:hidden text-[9px] text-slate-400 font-bold uppercase mt-0.5">${i.brand || ''} ${i.brand && i.supplier ? '•' : ''} ${i.supplier || ''}</div>
-                        </td>
-                        <td class="hidden md:table-cell px-4 py-4 text-slate-500 uppercase font-bold">${i.brand || '-'}</td>
-                        <td class="hidden lg:table-cell px-4 py-4 text-slate-500 uppercase font-bold">${i.supplier || '-'}</td>
-                        <td class="px-4 py-4">
-                            <div class="price-grid">
-                                <span class="text-[9px] font-black text-slate-400">₱</span>
-                                <span class="price-number font-mono font-black text-blue-700 text-[13px]">${Number(i.price).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                                <span class="text-[8px] text-slate-400 font-black uppercase">/${i.unit}</span>
-                            </div>
-                        </td>
-                        <td class="admin-only ${isAdmin ? '' : 'hidden'} px-4 py-4 text-right no-print">
-                            <div class="flex justify-end gap-2">
-                                <button onclick="event.stopPropagation(); editItem('${i.id}')" class="text-slate-400 hover:text-blue-600"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-                                <button onclick="event.stopPropagation(); deleteItem('${i.id}')" class="text-slate-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                            </div>
-                        </td>
-                    </tr>
-                `).join('');
-
-                document.getElementById('materialsTableBody').innerHTML = html;
-                document.getElementById('tableContainer').classList.remove('hidden');
-                lucide.createIcons();
-            });
-        };
-
-        window.handlePrint = () => { render(); window.print(); };
-
-        document.getElementById('searchInput').oninput = () => {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(render, 150);
         };
 
         document.getElementById('itemForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const saveBtn = document.getElementById('saveBtn');
-            saveBtn.disabled = true;
             const id = document.getElementById('itemId').value;
             const data = {
                 name: document.getElementById('itemName').value.toUpperCase(),
@@ -509,23 +475,64 @@
                 unit: document.getElementById('itemUnit').value.toUpperCase(),
                 updatedAt: serverTimestamp()
             };
-            try {
-                if (id) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data);
-                else { data.idNo = getNextIdNo(); await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), data); }
-                refreshData();
-                closeModal('itemModal');
-            } catch (err) { alert(err.message); }
-            finally { saveBtn.disabled = false; }
+            if (id) {
+                const old = items.find(i => i.id === id);
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data);
+                createLog('EDIT', data.name, id, old.idNo);
+            } else {
+                data.idNo = items.length > 0 ? Math.max(...items.map(i => parseInt(i.idNo) || 0)) + 1 : 1;
+                const newDoc = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), data);
+                createLog('ADD', data.name, newDoc.id, data.idNo);
+            }
+            refreshData();
+            closeModal('itemModal');
         });
 
         window.deleteItem = async (id) => {
             if (!confirm('Delete item?')) return;
+            const item = items.find(i => i.id === id);
             await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
+            createLog('DELETE', item.name, id, item.idNo);
             refreshData();
         };
 
-        window.refreshData = refreshData;
+        window.handleExcelUpload = (e) => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = async (evt) => {
+                const bstr = evt.target.result;
+                const wb = XLSX.read(bstr, { type: 'binary' });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                const data = XLSX.utils.sheet_to_json(ws);
+                
+                for (const row of data) {
+                    const idNo = items.length > 0 ? Math.max(...items.map(i => parseInt(i.idNo) || 0)) + 1 : 1;
+                    const material = {
+                        idNo: idNo,
+                        name: (row.Material || row.name || '').toUpperCase(),
+                        brand: (row.Brand || row.brand || '').toUpperCase(),
+                        price: parseFloat(row.Price || row.price) || 0,
+                        unit: (row.Unit || row.unit || 'PC').toUpperCase(),
+                        supplier: (row.Supplier || row.supplier || '').toUpperCase(),
+                        updatedAt: serverTimestamp()
+                    };
+                    if (material.name) {
+                        const newDoc = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), material);
+                        items.push({id: newDoc.id, ...material});
+                    }
+                }
+                createLog('ADD', `EXCEL IMPORT (${data.length} ITEMS)`, '', '');
+                refreshData();
+                e.target.value = '';
+            };
+            reader.readAsBinaryString(file);
+        };
+
+        document.getElementById('searchInput').oninput = render;
+        window.handlePrint = () => window.print();
         window.handleLogout = () => location.reload();
+        window.refreshData = refreshData;
         lucide.createIcons();
     </script>
 </body>
