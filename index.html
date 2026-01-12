@@ -325,7 +325,6 @@
                 const date = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'Just now';
                 let colorClass = log.action === 'ADD' ? 'bg-green-100 text-green-700' : log.action === 'EDIT' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700';
                 
-                // If it's a range of IDs (Bulk Upload)
                 const isRange = log.idNo && log.idNo.toString().includes('-');
                 const displayId = isRange ? log.idNo : (log.idNo || '??');
 
@@ -351,36 +350,18 @@
 
         window.navigateToItem = (idNo, itemName) => {
             closeModal('logsModal');
-            
-            // If the ID is a range (Bulk Upload like "45-60")
-            if (idNo && idNo.includes('-')) {
-                const [start, end] = idNo.split('-').map(n => parseInt(n));
-                const term = document.getElementById('searchInput');
-                term.value = ""; // Clear search so we can filter logic manually
-                
-                // Show items in that ID range
-                const rangeItems = items.filter(i => {
-                    const idInt = parseInt(i.idNo);
-                    return idInt >= start && idInt <= end;
-                });
-                
-                // To keep the app behavior simple, we just search for the start ID to jump there
-                term.value = start.toString();
-                render();
-            } else {
-                const queryValue = (idNo && idNo !== 'MSG' && idNo !== '??' && idNo !== '') ? idNo : itemName.split(' (')[0]; 
-                document.getElementById('searchInput').value = queryValue;
-                render();
-            }
+            document.getElementById('searchInput').value = idNo;
+            render();
             
             setTimeout(() => {
                 const rows = document.querySelectorAll('#materialsTableBody tr');
                 for (let row of rows) {
+                    // Highlight rows that are part of the target (either exact ID match or part of range display)
                     if (row.innerText.includes(`#${idNo.split('-')[0]}`) || row.innerText.includes(itemName.toUpperCase())) {
                         row.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         row.classList.add('item-highlight');
                         setTimeout(() => row.classList.remove('item-highlight'), 3000);
-                        break;
+                        if (!idNo.includes('-')) break; // Only stop at first for single IDs
                     }
                 }
             }, 300);
@@ -532,13 +513,32 @@
         };
 
         const render = () => {
-            const term = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = items.filter(i => 
-                (i.name || '').toLowerCase().includes(term) || 
-                (i.idNo || '').toString().includes(term) ||
-                (i.brand || '').toLowerCase().includes(term) ||
-                (i.supplier || '').toLowerCase().includes(term)
-            ).sort((a, b) => {
+            const rawTerm = document.getElementById('searchInput').value.toLowerCase();
+            const term = rawTerm.trim();
+            
+            // Check if search term is an ID range like "45-47"
+            let range = null;
+            if (term.includes('-')) {
+                const parts = term.split('-').map(p => parseInt(p));
+                if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                    range = { start: Math.min(...parts), end: Math.max(...parts) };
+                }
+            }
+
+            const filtered = items.filter(i => {
+                const idInt = parseInt(i.idNo);
+                
+                // If it's a range search, show everything in range
+                if (range) {
+                    return idInt >= range.start && idInt <= range.end;
+                }
+                
+                // Normal search
+                return (i.name || '').toLowerCase().includes(term) || 
+                       (i.idNo || '').toString().includes(term) ||
+                       (i.brand || '').toLowerCase().includes(term) ||
+                       (i.supplier || '').toLowerCase().includes(term);
+            }).sort((a, b) => {
                 let v1 = a[sortConfig.key], v2 = b[sortConfig.key];
                 if (sortConfig.key === 'idNo' || sortConfig.key === 'price') { v1 = parseFloat(v1) || 0; v2 = parseFloat(v2) || 0; }
                 return sortConfig.direction === 'asc' ? (v1 > v2 ? 1 : -1) : (v1 < v2 ? 1 : -1);
@@ -667,7 +667,6 @@
                                 }
                                 
                                 const lastId = nextIdNo - 1;
-                                // Log the range of IDs created for better searchability
                                 createLog('ADD', `EXCEL IMPORT (${validItems.length} ITEMS)`, '', `${firstId}-${lastId}`);
                                 refreshData();
                             }
