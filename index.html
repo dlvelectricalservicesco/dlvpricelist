@@ -145,6 +145,10 @@
             </div>
             
             <div class="flex items-center gap-1 sm:gap-3">
+                <div id="activeUsersDisplay" class="hidden flex items-center gap-1.5 px-2 py-1.5 bg-green-50 text-green-700 rounded-lg border border-green-100 mr-1" title="Active Users">
+                    <i data-lucide="users" class="w-3.5 h-3.5"></i>
+                    <span id="activeUserCount" class="text-[10px] font-black">1</span>
+                </div>
                 <button onclick="refreshData()" class="p-2 text-slate-500 hover:text-blue-600 transition" title="Refresh Data">
                     <i data-lucide="refresh-cw" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                 </button>
@@ -481,7 +485,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, serverTimestamp, query, orderBy, limit, writeBatch, where } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, serverTimestamp, query, orderBy, limit, writeBatch, where, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyDhflO6H-PJFOu4Kk_9nHaly_IJ8wjZpz0",
@@ -504,6 +508,7 @@
         let isSelectionMode = false;
         let sortConfig = { key: 'idNo', direction: 'asc' }; 
         let estimateQuantities = {};
+        const sessionId = crypto.randomUUID();
 
         const createLog = async (action, itemName, itemId, idNo, price = null) => {
             try {
@@ -816,8 +821,61 @@
             finally { document.getElementById('loadingState').classList.add('hidden'); }
         };
 
+        // --- PRESENCE SYSTEM ---
+        const initPresence = () => {
+            const presenceRef = doc(db, 'artifacts', appId, 'public', 'data', 'presence', sessionId);
+            
+            // Heartbeat: Write to presence every 5 minutes (300000ms) to save quota
+            const heartbeat = async () => {
+                if (!auth.currentUser) return;
+                try {
+                    await setDoc(presenceRef, {
+                        lastSeen: serverTimestamp(),
+                        id: sessionId
+                    });
+                } catch (e) { console.error("Presence heartbeat failed", e); }
+            };
+
+            // Start heartbeat
+            heartbeat();
+            setInterval(heartbeat, 300000);
+
+            // Cleanup on tab close
+            window.addEventListener('beforeunload', () => {
+                // Attempt to delete (best effort)
+                deleteDoc(presenceRef);
+            });
+
+            // Listen for active users
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'presence'), (snap) => {
+                const now = Date.now();
+                const activeCount = snap.docs.filter(d => {
+                    const data = d.data();
+                    if (!data.lastSeen) return true; // Assume active if local write hasn't synced timestamp yet
+                    // Check if seen in last 6 minutes (360000ms) - allows for 5min heartbeat + 1min buffer
+                    const lastSeenTime = data.lastSeen.toMillis ? data.lastSeen.toMillis() : now;
+                    return (now - lastSeenTime) < 360000;
+                }).length;
+
+                const display = document.getElementById('activeUsersDisplay');
+                const countSpan = document.getElementById('activeUserCount');
+                
+                if (activeCount > 0) {
+                    countSpan.textContent = activeCount;
+                    display.classList.remove('hidden');
+                }
+            }, (error) => {
+                console.error("Presence listener error:", error);
+            });
+        };
+
         onAuthStateChanged(auth, (user) => {
-            if (user) refreshData(); else signInAnonymously(auth);
+            if (user) {
+                refreshData();
+                initPresence();
+            } else {
+                signInAnonymously(auth);
+            }
         });
 
         window.openModal = (id, mode = 'add') => {
