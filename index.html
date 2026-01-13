@@ -29,7 +29,7 @@
         .log-scroll::-webkit-scrollbar { width: 4px; }
         .log-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
 
-        /* Timeline Scroll for Analytics - Adjusted to show approx 3 entries */
+        /* Timeline Scroll for Analytics */
         .timeline-scroll { max-height: 190px; overflow-y: auto; padding-right: 8px; }
         .timeline-scroll::-webkit-scrollbar { width: 4px; }
         .timeline-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -61,16 +61,70 @@
         .history-line { position: relative; }
         .history-line::before { content: ''; position: absolute; left: 7px; top: 0; bottom: 0; width: 2px; background: #e2e8f0; }
 
+        /* --- PRINT STYLES --- */
         @media print { 
             .no-print { display: none !important; } 
-            /* Scope the hidden rows strictly to the materialsTable to avoid hiding estimate items */
-            body.selection-active-print #materialsTable tr:not(.selected-row):not(.header-row) { display: none !important; }
-            .selected-row { background-color: white !important; }
+            
+            /* If we are printing the Estimate Modal */
+            body.printing-estimate > header,
+            body.printing-estimate > main {
+                display: none !important;
+            }
+
+            /* Main list print styles (only valid when NOT printing estimate) */
+            body:not(.printing-estimate).selection-active-print tr:not(.selected-row):not(.header-row) { display: none !important; }
+            body:not(.printing-estimate) .selected-row { background-color: white !important; }
+
+            /* General Reset */
             table { width: 100% !important; border-collapse: collapse !important; }
             th:first-child, td:first-child { display: none !important; }
             .md\:table-cell { display: table-cell !important; }
             .print-only { display: block !important; }
-            .estimate-container { padding: 0 !important; border: none !important; box-shadow: none !important; }
+
+            /* Estimate Modal Specifics for Print */
+            #estimateModal.active {
+                position: absolute !important;
+                inset: 0 !important;
+                background: white !important;
+                padding: 0 !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                overflow: visible !important;
+                z-index: 9999 !important;
+            }
+            
+            #estimateModal.active .modal-content {
+                transform: none !important;
+                box-shadow: none !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                max-height: none !important;
+                height: auto !important;
+                overflow: visible !important;
+                border-radius: 0 !important;
+                display: block !important;
+            }
+
+            .estimate-container { 
+                padding: 0 !important; 
+                border: none !important; 
+                box-shadow: none !important; 
+                width: 100% !important;
+                margin: 0 !important;
+                overflow: visible !important;
+                height: auto !important;
+            }
+
+            /* Prevent cutting rows in half */
+            tr { page-break-inside: avoid; }
+            
+            /* Hide default header if custom header exists */
+            .has-custom-header #defaultEstimateHeader { display: none !important; }
+            
+            @page { margin: 0.5cm; size: auto; }
         }
         .print-only { display: none; }
     </style>
@@ -185,38 +239,46 @@
                     <h3 class="text-sm font-black uppercase tracking-tight">Estimate Generator</h3>
                 </div>
                 <div class="flex gap-2 items-center">
-                    <select id="headerSelector" onchange="toggleEstimateHeader()" class="text-xs font-bold uppercase border border-slate-200 rounded-lg px-2 py-2 outline-none focus:border-blue-500 bg-white">
-                        <option value="modern">Modern Header</option>
-                        <option value="classic">Classic Header</option>
-                    </select>
+                    <!-- Template Upload Controls -->
+                    <div class="flex gap-2 border-r border-slate-200 pr-2 mr-2">
+                        <input type="file" id="headerUpload" accept="image/*" class="hidden" onchange="handleImageUpload(event, 'header')">
+                        <button onclick="document.getElementById('headerUpload').click()" class="text-[10px] font-bold uppercase text-slate-500 hover:text-blue-600 flex items-center gap-1">
+                            <i data-lucide="image-plus" class="w-3.5 h-3.5"></i> Header
+                        </button>
+                        
+                        <input type="file" id="footerUpload" accept="image/*" class="hidden" onchange="handleImageUpload(event, 'footer')">
+                        <button onclick="document.getElementById('footerUpload').click()" class="text-[10px] font-bold uppercase text-slate-500 hover:text-blue-600 flex items-center gap-1">
+                            <i data-lucide="image-plus" class="w-3.5 h-3.5"></i> Footer
+                        </button>
+                        
+                        <button onclick="clearTemplateImages()" class="text-slate-400 hover:text-red-500" title="Clear Templates">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+
                     <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 flex items-center gap-2">
-                        <i data-lucide="printer" class="w-3.5 h-3.5"></i> Print
+                        <i data-lucide="printer" class="w-3.5 h-3.5"></i> Print Estimate
                     </button>
                     <button onclick="closeModal('estimateModal')" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
                 </div>
             </div>
             
-            <div id="estimatePrintArea" class="p-8 overflow-y-auto flex-1 estimate-container bg-white">
+            <div id="estimatePrintArea" class="p-8 overflow-y-auto flex-1 estimate-container bg-white relative">
                 
-                <!-- Header Option 1: Modern -->
-                <div id="headerModern" class="header-option flex justify-between items-start mb-8 border-b-4 border-blue-600 pb-6">
+                <!-- Custom Header Image Placeholder -->
+                <div id="customHeaderContainer" class="hidden mb-6">
+                    <img id="customHeaderImg" class="w-full h-auto object-contain max-h-48" alt="Header Template">
+                </div>
+
+                <!-- Default Document Header (Hidden if custom header is active) -->
+                <div id="defaultEstimateHeader" class="flex justify-between items-start mb-8 border-b-4 border-blue-600 pb-6">
                     <div>
                         <h1 class="text-2xl font-black uppercase text-blue-700 leading-tight">Project Estimate</h1>
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Ref: <span class="est-ref-display"></span></p>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Ref: DLV-EST-<span id="refNumber"></span></p>
                     </div>
                     <div class="text-right">
                         <p class="text-sm font-black uppercase">DLV Materials Tracker</p>
-                        <p class="est-date-display text-[10px] font-bold text-slate-400 uppercase"></p>
-                    </div>
-                </div>
-
-                <!-- Header Option 2: Classic -->
-                <div id="headerClassic" class="header-option hidden text-center mb-8 border-b-2 border-slate-800 pb-6">
-                    <h1 class="text-3xl font-serif font-bold text-slate-900 mb-2 tracking-widest">OFFICIAL ESTIMATE</h1>
-                    <p class="text-sm font-serif italic text-slate-600">DLV Materials Tracker System</p>
-                    <div class="mt-4 flex justify-center gap-8 text-xs font-serif border-t border-slate-200 pt-2 inline-block mx-auto">
-                        <span>DATE: <span class="est-date-display font-bold"></span></span>
-                        <span>REFERENCE: <span class="est-ref-display font-bold"></span></span>
+                        <p id="estimateDateDisplay" class="text-[10px] font-bold text-slate-400 uppercase"></p>
                     </div>
                 </div>
 
@@ -280,6 +342,11 @@
                             <p class="text-[9px] font-black uppercase text-slate-500">Authorized Signature</p>
                         </div>
                     </div>
+                </div>
+
+                <!-- Custom Footer Image Placeholder -->
+                <div id="customFooterContainer" class="hidden mt-8">
+                    <img id="customFooterImg" class="w-full h-auto object-contain max-h-32" alt="Footer Template">
                 </div>
             </div>
         </div>
@@ -520,24 +587,16 @@
             
             const selectedItems = items.filter(i => selectedIds.has(i.id));
             const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-            const refStr = "DLV-EST-" + Date.now().toString().slice(-6);
-
-            document.querySelectorAll('.est-date-display').forEach(el => el.textContent = dateStr);
-            document.querySelectorAll('.est-ref-display').forEach(el => el.textContent = refStr);
+            document.getElementById('estimateDateDisplay').textContent = dateStr;
+            document.getElementById('refNumber').textContent = Date.now().toString().slice(-6);
+            
+            // Load saved templates
+            loadTemplate('header');
+            loadTemplate('footer');
             
             renderEstimateItems(selectedItems);
+            document.body.classList.add('printing-estimate');
             openModal('estimateModal');
-        };
-
-        window.toggleEstimateHeader = () => {
-            const selected = document.getElementById('headerSelector').value;
-            document.querySelectorAll('.header-option').forEach(el => el.classList.add('hidden'));
-            
-            if (selected === 'modern') {
-                document.getElementById('headerModern').classList.remove('hidden');
-            } else if (selected === 'classic') {
-                document.getElementById('headerClassic').classList.remove('hidden');
-            }
         };
 
         const renderEstimateItems = (selectedItems) => {
@@ -584,6 +643,48 @@
             estimateQuantities[id] = Math.max(1, parseInt(val) || 1);
             const selectedItems = items.filter(i => selectedIds.has(i.id));
             renderEstimateItems(selectedItems);
+        };
+        
+        // Template Upload Logic
+        window.handleImageUpload = (event, type) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const base64 = e.target.result;
+                    localStorage.setItem(`dlv_template_${type}`, base64);
+                    loadTemplate(type);
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+
+        window.loadTemplate = (type) => {
+            const base64 = localStorage.getItem(`dlv_template_${type}`);
+            const img = document.getElementById(`custom${type.charAt(0).toUpperCase() + type.slice(1)}Img`);
+            const container = document.getElementById(`custom${type.charAt(0).toUpperCase() + type.slice(1)}Container`);
+            
+            if (base64) {
+                img.src = base64;
+                container.classList.remove('hidden');
+                if (type === 'header') {
+                    document.getElementById('estimatePrintArea').classList.add('has-custom-header');
+                }
+            } else {
+                container.classList.add('hidden');
+                if (type === 'header') {
+                    document.getElementById('estimatePrintArea').classList.remove('has-custom-header');
+                }
+            }
+        };
+
+        window.clearTemplateImages = () => {
+            localStorage.removeItem('dlv_template_header');
+            localStorage.removeItem('dlv_template_footer');
+            loadTemplate('header');
+            loadTemplate('footer');
+            document.getElementById('headerUpload').value = '';
+            document.getElementById('footerUpload').value = '';
         };
 
         // Real-time link for print preview
@@ -728,7 +829,12 @@
             }
         };
 
-        window.closeModal = (id) => document.getElementById(id).classList.remove('active');
+        window.closeModal = (id) => {
+            document.getElementById(id).classList.remove('active');
+            if(id === 'estimateModal') {
+                document.body.classList.remove('printing-estimate');
+            }
+        };
 
         window.submitLogin = () => {
             const passwordInput = document.getElementById('loginPassword');
