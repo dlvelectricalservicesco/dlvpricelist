@@ -308,13 +308,13 @@
                 </div>
 
                 <!-- Estimate Table -->
-                <table class="w-full text-left border-collapse mb-8">
+                <table class="w-full text-left border-collapse mb-8 table-fixed">
                     <thead class="bg-slate-50 border-y border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest">
                         <tr>
-                            <th class="px-4 py-3">Description</th>
-                            <th class="px-4 py-3 text-center">Qty</th>
-                            <th class="px-4 py-3 text-right">Unit Price</th>
-                            <th class="px-4 py-3 text-right">Total</th>
+                            <th class="px-4 py-3 w-[45%]">Description</th>
+                            <th class="px-4 py-3 text-center w-[15%]">Qty</th>
+                            <th class="px-4 py-3 text-right w-[20%]">Unit Price</th>
+                            <th class="px-4 py-3 text-right w-[20%]">Total</th>
                         </tr>
                     </thead>
                     <tbody id="estimateItemsBody" class="divide-y divide-slate-100 text-xs">
@@ -609,14 +609,14 @@
                 grandTotal += total;
 
                 return `
-                    <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="px-4 py-4">
+                    <tr class="hover:bg-slate-50 transition-colors align-top border-b border-slate-50 last:border-0">
+                        <td class="px-4 py-3">
                             <div class="flex flex-col">
-                                <span class="font-black uppercase text-slate-800 tracking-tight">${item.name}</span>
-                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">${item.brand || 'NO BRAND'} #${item.idNo}</span>
+                                <span class="font-black uppercase text-slate-800 tracking-tight leading-tight">${item.name}</span>
+                                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">${item.brand || 'NO BRAND'} #${item.idNo}</span>
                             </div>
                         </td>
-                        <td class="px-4 py-4 text-center">
+                        <td class="px-4 py-3 text-center">
                             <div class="flex items-center justify-center gap-2 no-print">
                                 <input type="number" value="${qty}" min="1" 
                                     onchange="updateEstimateQty('${item.id}', this.value)"
@@ -625,10 +625,10 @@
                             </div>
                             <span class="print-only font-bold">${qty} ${item.unit}</span>
                         </td>
-                        <td class="px-4 py-4 text-right font-bold text-slate-600">
+                        <td class="px-4 py-3 text-right font-bold text-slate-600 whitespace-nowrap">
                             ₱${Number(item.price).toLocaleString(undefined, {minimumFractionDigits: 2})}
                         </td>
-                        <td class="px-4 py-4 text-right font-black text-blue-700">
+                        <td class="px-4 py-3 text-right font-black text-blue-700 whitespace-nowrap">
                             ₱${Number(total).toLocaleString(undefined, {minimumFractionDigits: 2})}
                         </td>
                     </tr>
