@@ -81,10 +81,10 @@
             .md\:table-cell { display: table-cell !important; }
             .print-only { display: block !important; }
 
-            /* Estimate Modal Specifics for Print */
+            /* Estimate Modal Specifics for Print - FIXED LAYOUT */
             #estimateModal.active {
-                position: absolute !important;
-                inset: 0 !important;
+                position: relative !important; /* Changed from absolute */
+                inset: auto !important; /* Removed inset constraints */
                 background: white !important;
                 padding: 0 !important;
                 opacity: 1 !important;
@@ -106,6 +106,8 @@
                 overflow: visible !important;
                 border-radius: 0 !important;
                 display: block !important;
+                margin: 0 !important;
+                position: static !important;
             }
 
             .estimate-container { 
@@ -116,7 +118,11 @@
                 margin: 0 !important;
                 overflow: visible !important;
                 height: auto !important;
+                display: block !important;
             }
+
+            /* Ensure table columns fit */
+            table.table-fixed { table-layout: fixed !important; width: 100% !important; }
 
             /* Prevent cutting rows in half */
             tr { page-break-inside: avoid; }
@@ -311,10 +317,11 @@
                 <table class="w-full text-left border-collapse mb-8 table-fixed">
                     <thead class="bg-slate-50 border-y border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest">
                         <tr>
-                            <th class="px-4 py-3 w-[45%]">Description</th>
-                            <th class="px-4 py-3 text-center w-[15%]">Qty</th>
-                            <th class="px-4 py-3 text-right w-[20%]">Unit Price</th>
-                            <th class="px-4 py-3 text-right w-[20%]">Total</th>
+                            <!-- Explicit widths added in style tag for print stability -->
+                            <th class="px-4 py-3 w-[45%]" style="width: 45%;">Description</th>
+                            <th class="px-4 py-3 text-center w-[15%]" style="width: 15%;">Qty</th>
+                            <th class="px-4 py-3 text-right w-[20%]" style="width: 20%;">Unit Price</th>
+                            <th class="px-4 py-3 text-right w-[20%]" style="width: 20%;">Total</th>
                         </tr>
                     </thead>
                     <tbody id="estimateItemsBody" class="divide-y divide-slate-100 text-xs">
