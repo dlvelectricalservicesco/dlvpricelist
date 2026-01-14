@@ -29,6 +29,7 @@
         .log-scroll::-webkit-scrollbar { width: 4px; }
         .log-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
 
+        /* Timeline Scroll for Analytics */
         .timeline-scroll { max-height: 190px; overflow-y: auto; padding-right: 8px; }
         .timeline-scroll::-webkit-scrollbar { width: 4px; }
         .timeline-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -63,7 +64,12 @@
         /* --- PRINT STYLES --- */
         @media print { 
             .no-print { display: none !important; } 
+            .print-only { display: block !important; }
+            
+            /* Hide everything in body */
             body > * { display: none !important; }
+            
+            /* Show only the modal being printed */
             body.printing-estimate { background: white !important; }
             body.printing-estimate #estimateModal {
                 display: block !important;
@@ -96,14 +102,13 @@
             .estimate-container {
                 overflow: visible !important;
                 height: auto !important;
-                padding: 0 10px !important;
+                padding: 0 10px !important; /* Slight padding for safety */
             }
 
             table { width: 100% !important; border-collapse: collapse !important; table-layout: fixed !important; }
             th, td { word-wrap: break-word; }
             tr { page-break-inside: avoid; }
             
-            .print-only { display: block !important; }
             @page { margin: 0.5cm; size: auto; }
         }
         .print-only { display: none; }
@@ -121,6 +126,9 @@
             <div class="flex items-center gap-1 sm:gap-3">
                 <button onclick="refreshData()" class="p-2 text-slate-500 hover:text-blue-600 transition" title="Refresh Data">
                     <i data-lucide="refresh-cw" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                </button>
+                <button onclick="openEstimateHistory()" class="p-2 text-slate-500 hover:text-blue-600 transition" title="Estimate History">
+                    <i data-lucide="file-clock" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                 </button>
                 <button id="selectionToggle" onclick="toggleSelectionMode()" class="p-2 sm:px-3 sm:py-2 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition">
                     <i data-lucide="check-square" class="w-4 h-4 sm:hidden"></i>
@@ -165,8 +173,8 @@
             <div class="flex items-center gap-3">
                 <p class="text-[10px] text-blue-700 font-bold uppercase"><span id="selectedCount">0</span> items selected</p>
                 <div id="estimateAction" class="flex gap-2 border-l border-blue-200 pl-3">
-                    <button onclick="openEstimateModal()" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 flex items-center gap-2">
-                        <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Create Estimate
+                    <button onclick="openNewEstimate()" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 flex items-center gap-2">
+                        <i data-lucide="file-plus" class="w-3.5 h-3.5"></i> Create Estimate
                     </button>
                 </div>
                 <div id="adminBulkActions" class="hidden flex gap-2 border-l border-blue-200 pl-3">
@@ -250,6 +258,39 @@
         </div>
     </div>
 
+    <!-- Estimate History Modal -->
+    <div id="estimateHistoryModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div class="modal-content bg-white rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[85vh]">
+            <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+                <div class="flex items-center gap-2">
+                    <div class="bg-blue-600 p-1.5 rounded-lg text-white"><i data-lucide="file-clock" class="w-4 h-4"></i></div>
+                    <h3 class="text-sm font-black uppercase tracking-tight">Estimate History</h3>
+                </div>
+                <button onclick="closeModal('estimateHistoryModal')" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest sticky top-0">
+                        <tr>
+                            <th class="px-6 py-4">Ref No</th>
+                            <th class="px-6 py-4">Client</th>
+                            <th class="px-6 py-4">Project</th>
+                            <th class="px-6 py-4">Date</th>
+                            <th class="px-6 py-4 text-right">Total</th>
+                            <th class="px-6 py-4 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="estimateHistoryBody" class="divide-y divide-slate-100 text-xs">
+                        <!-- History populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="noHistoryMsg" class="hidden p-8 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">
+                No saved estimates found
+            </div>
+        </div>
+    </div>
+
     <!-- Estimate Modal -->
     <div id="estimateModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div class="modal-content bg-white rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[90vh]">
@@ -259,23 +300,33 @@
                     <h3 class="text-sm font-black uppercase tracking-tight">Estimate Generator</h3>
                 </div>
                 <div class="flex gap-2 items-center">
-                    <button onclick="openEstimateSettings()" class="text-[10px] font-bold uppercase text-slate-500 hover:text-blue-600 flex items-center gap-1 border-r border-slate-200 pr-3 mr-1">
-                        <i data-lucide="settings" class="w-3.5 h-3.5"></i> Configure Header
+                    <button onclick="saveEstimate()" id="saveEstimateBtn" class="bg-green-600 text-white px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-green-700 flex items-center gap-1">
+                        <i data-lucide="save" class="w-3.5 h-3.5"></i> <span id="saveBtnText">Save</span>
                     </button>
+                    
+                    <button onclick="openEstimateSettings()" class="text-[10px] font-bold uppercase text-slate-500 hover:text-blue-600 flex items-center gap-1 border-r border-slate-200 pr-3 mr-1 ml-1">
+                        <i data-lucide="settings" class="w-3.5 h-3.5"></i> Config
+                    </button>
+
                     <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 flex items-center gap-2">
-                        <i data-lucide="printer" class="w-3.5 h-3.5"></i> Print Estimate
+                        <i data-lucide="printer" class="w-3.5 h-3.5"></i> Print
                     </button>
                     <button onclick="closeModal('estimateModal')" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
                 </div>
             </div>
             
             <div id="estimatePrintArea" class="p-8 overflow-y-auto flex-1 estimate-container bg-white relative">
-                
+                <!-- Hidden ID for edit mode -->
+                <input type="hidden" id="currentEstimateId">
+
+                <!-- Dynamic Header Section -->
                 <div class="flex items-start justify-between mb-8 border-b-4 border-blue-600 pb-6 min-h-[100px]">
                     <div class="flex gap-6 items-center">
+                        <!-- Logo Placeholder -->
                         <div id="estHeaderLogo" class="hidden">
                              <img id="estLogoImg" class="h-20 w-auto object-contain">
                         </div>
+                        <!-- Company Info -->
                         <div>
                             <h1 id="estHeaderTitle" class="text-2xl font-black uppercase text-slate-800 leading-tight">DLV Materials Tracker</h1>
                             <p id="estHeaderInfo" class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mt-1 whitespace-pre-line"></p>
@@ -289,6 +340,7 @@
                     </div>
                 </div>
 
+                <!-- Recipient Info -->
                 <div class="grid grid-cols-2 gap-8 mb-8 no-print">
                     <div class="space-y-2">
                         <label class="text-[9px] font-black text-slate-400 uppercase">Project Name / Reference</label>
@@ -304,25 +356,29 @@
                     <div class="grid grid-cols-2 gap-8">
                         <div>
                             <p class="text-[9px] font-black text-slate-400 uppercase mb-1">Project</p>
-                            <p id="printProjectTitle" class="text-sm font-bold uppercase">N/A</p>
+                            <p id="printProjectTitle" class="text-sm font-bold uppercase"></p>
                         </div>
                         <div>
                             <p class="text-[9px] font-black text-slate-400 uppercase mb-1">Client</p>
-                            <p id="printClientName" class="text-sm font-bold uppercase">N/A</p>
+                            <p id="printClientName" class="text-sm font-bold uppercase"></p>
                         </div>
                     </div>
                 </div>
 
+                <!-- Estimate Table -->
                 <table class="w-full text-left border-collapse mb-8 table-fixed">
                     <thead class="bg-slate-50 border-y border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest">
                         <tr>
+                            <!-- Explicit widths added in style tag for print stability -->
                             <th class="px-4 py-3 w-[45%]" style="width: 45%;">Description</th>
                             <th class="px-4 py-3 text-center w-[15%]" style="width: 15%;">Qty</th>
                             <th class="px-4 py-3 text-right w-[20%]" style="width: 20%;">Unit Price</th>
                             <th class="px-4 py-3 text-right w-[20%]" style="width: 20%;">Total</th>
                         </tr>
                     </thead>
-                    <tbody id="estimateItemsBody" class="divide-y divide-slate-100 text-xs"></tbody>
+                    <tbody id="estimateItemsBody" class="divide-y divide-slate-100 text-xs">
+                        <!-- Items populated via JS -->
+                    </tbody>
                     <tfoot>
                         <tr class="bg-slate-50 font-black border-t-2 border-slate-200">
                             <td colspan="3" class="px-4 py-4 text-right text-[10px] uppercase">Estimate Total (PHP)</td>
@@ -379,6 +435,7 @@
                     <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                         <i data-lucide="clock" class="w-3 h-3"></i> Revision Timeline
                     </p>
+                    <!-- Wrapper for scrollable timeline -->
                     <div class="timeline-scroll">
                         <div id="analyticsTimeline" class="history-line space-y-6 pl-2 pr-1"></div>
                     </div>
@@ -490,7 +547,9 @@
 
         let items = [];
         let logs = [];
+        let estimates = [];
         let selectedIds = new Set();
+        let activeEstimateItems = []; // Items currently in the estimate modal (array of objects)
         let isAdmin = false;
         let isSelectionMode = false;
         let sortConfig = { key: 'idNo', direction: 'asc' }; 
@@ -516,18 +575,23 @@
             const modal = document.getElementById('confirmModal');
             const icon = document.getElementById('confirmIcon');
             const proceedBtn = document.getElementById('confirmProceed');
+            
             document.getElementById('confirmTitle').textContent = title;
             document.getElementById('confirmText').textContent = text;
             proceedBtn.textContent = proceedLabel;
+            
             icon.className = `mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4 ${type === 'danger' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`;
             icon.innerHTML = `<i data-lucide="${type === 'danger' ? 'alert-triangle' : 'info'}" class="w-6 h-6"></i>`;
             proceedBtn.className = `flex-1 py-3 text-[10px] font-black uppercase text-white rounded-lg ${type === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`;
+            
             modal.classList.add('active');
             lucide.createIcons();
+
             const cancel = () => {
                 modal.classList.remove('active');
                 document.getElementById('confirmProceed').onclick = null;
             };
+            
             document.getElementById('confirmCancel').onclick = cancel;
             proceedBtn.onclick = () => {
                 onProceed();
@@ -556,7 +620,10 @@
             container.innerHTML = recentLogs.map(log => {
                 const date = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'Just now';
                 let colorClass = log.action === 'ADD' ? 'bg-green-100 text-green-700' : log.action === 'EDIT' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700';
+                
                 const isRange = log.idNo && log.idNo.toString().includes('-');
+                const displayId = isRange ? log.idNo : (log.idNo || '??');
+
                 return `
                     <div ${log.action !== 'DELETE' ? `onclick="navigateToItem('${log.idNo}', '${log.itemName.replace(/'/g, "\\'")}')"` : ''} 
                          class="p-3 bg-white border border-slate-100 rounded-xl flex items-center justify-between group ${log.action !== 'DELETE' ? 'cursor-pointer hover:border-blue-200 hover:shadow-md' : 'opacity-80'} transition-all">
@@ -564,7 +631,7 @@
                             <span class="text-[8px] font-black px-2 py-0.5 rounded ${colorClass}">${log.action}</span>
                             <div>
                                 <p class="text-[10px] font-black uppercase text-slate-800 leading-tight">${log.itemName}</p>
-                                <p class="text-[9px] font-bold text-slate-400 mt-0.5 uppercase">ID: #${isRange ? log.idNo : (log.idNo || '??')}</p>
+                                <p class="text-[9px] font-bold text-slate-400 mt-0.5 uppercase">ID: #${displayId}</p>
                             </div>
                         </div>
                         <div class="text-right flex items-center gap-2">
@@ -577,10 +644,14 @@
             lucide.createIcons();
         };
 
+        // --- ESTIMATE SETTINGS LOGIC ---
+        
         window.openEstimateSettings = () => {
+            // Populate inputs
             document.getElementById('settingCompanyName').value = estimateSettings.companyName || '';
             document.getElementById('settingCompanyInfo').value = estimateSettings.companyInfo || '';
             document.getElementById('settingFooterText').value = estimateSettings.footerText || '';
+            
             const preview = document.getElementById('settingsLogoPreview');
             if (estimateSettings.logoBase64) {
                 preview.innerHTML = `<img src="${estimateSettings.logoBase64}" class="w-full h-full object-contain">`;
@@ -594,6 +665,8 @@
         window.handleLogoSelect = (e) => {
             const file = e.target.files[0];
             if (!file) return;
+            
+            // Resize logic
             const reader = new FileReader();
             reader.onload = (readerEvent) => {
                 const img = new Image();
@@ -601,18 +674,23 @@
                     const canvas = document.createElement('canvas');
                     let width = img.width;
                     let height = img.height;
-                    const maxSize = 250;
+                    const maxSize = 250; // Max dimension for stored logo
+
                     if (width > height) {
                         if (width > maxSize) { height *= maxSize / width; width = maxSize; }
                     } else {
                         if (height > maxSize) { width *= maxSize / height; height = maxSize; }
                     }
+                    
                     canvas.width = width;
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
                     const resizedBase64 = canvas.toDataURL('image/png');
+                    
+                    // Update preview
                     document.getElementById('settingsLogoPreview').innerHTML = `<img src="${resizedBase64}" class="w-full h-full object-contain">`;
+                    // Store temporarily in input (or variable)
                     estimateSettings.pendingLogo = resizedBase64; 
                 };
                 img.src = readerEvent.target.result;
@@ -622,7 +700,7 @@
 
         window.removeLogo = () => {
             estimateSettings.pendingLogo = null;
-            estimateSettings.logoBase64 = null;
+            estimateSettings.logoBase64 = null; // Clear existing
             document.getElementById('settingsLogoPreview').innerHTML = `<i data-lucide="image" class="w-6 h-6 text-slate-300"></i>`;
             document.getElementById('logoUploadInput').value = '';
             lucide.createIcons();
@@ -632,6 +710,7 @@
             const companyName = document.getElementById('settingCompanyName').value.toUpperCase().trim();
             const companyInfo = document.getElementById('settingCompanyInfo').value.toUpperCase().trim();
             const footerText = document.getElementById('settingFooterText').value.toUpperCase().trim();
+            
             const newSettings = {
                 companyName: companyName || 'DLV MATERIALS TRACKER',
                 companyInfo: companyInfo,
@@ -639,14 +718,22 @@
                 logoBase64: estimateSettings.pendingLogo !== undefined ? estimateSettings.pendingLogo : estimateSettings.logoBase64,
                 updatedAt: serverTimestamp()
             };
+
             try {
+                // Save to Firestore
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'estimate'), newSettings);
+                
+                // Update local state
                 estimateSettings = { ...estimateSettings, ...newSettings };
-                delete estimateSettings.pendingLogo;
+                delete estimateSettings.pendingLogo; // cleanup
+                
+                // Refresh Estimate Modal View
                 updateEstimateHeaderUI();
+                
                 closeModal('estimateSettingsModal');
             } catch (err) {
                 console.error("Error saving settings:", err);
+                alert("Failed to save settings. Please try again.");
             }
         };
 
@@ -663,8 +750,10 @@
             document.getElementById('estHeaderTitle').textContent = estimateSettings.companyName;
             document.getElementById('estHeaderInfo').textContent = estimateSettings.companyInfo;
             document.getElementById('estFooterText').textContent = estimateSettings.footerText;
+            
             const logoDiv = document.getElementById('estHeaderLogo');
             const logoImg = document.getElementById('estLogoImg');
+            
             if (estimateSettings.logoBase64) {
                 logoImg.src = estimateSettings.logoBase64;
                 logoDiv.classList.remove('hidden');
@@ -673,25 +762,193 @@
             }
         };
 
-        window.openEstimateModal = () => {
-            if (selectedIds.size === 0) return;
-            updateEstimateHeaderUI();
-            const selectedItems = items.filter(i => selectedIds.has(i.id));
-            const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        // --- ESTIMATE HISTORY & SAVING LOGIC ---
+
+        const fetchEstimates = async () => {
+            try {
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'estimates'));
+                const snap = await getDocs(q);
+                estimates = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                             .sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+            } catch (err) { console.error("Fetch estimates error:", err); }
+        };
+
+        window.openEstimateHistory = () => {
+            const tbody = document.getElementById('estimateHistoryBody');
+            const noMsg = document.getElementById('noHistoryMsg');
+            
+            if (estimates.length === 0) {
+                tbody.innerHTML = '';
+                noMsg.classList.remove('hidden');
+            } else {
+                noMsg.classList.add('hidden');
+                tbody.innerHTML = estimates.map(est => {
+                    const date = est.createdAt ? new Date(est.createdAt.seconds * 1000).toLocaleDateString() : 'N/A';
+                    return `
+                        <tr class="hover:bg-slate-50 transition border-b border-slate-50 last:border-0">
+                            <td class="px-6 py-3">
+                                <button onclick="loadEstimate('${est.id}')" class="font-black text-blue-600 hover:underline uppercase">#${est.refNumber}</button>
+                            </td>
+                            <td class="px-6 py-3 uppercase text-slate-600 font-bold whitespace-nowrap">${est.clientName || 'N/A'}</td>
+                            <td class="px-6 py-3 uppercase text-slate-600 font-bold whitespace-nowrap">${est.projectName || 'N/A'}</td>
+                            <td class="px-6 py-3 text-slate-400 font-bold uppercase whitespace-nowrap">${date}</td>
+                            <td class="px-6 py-3 text-right font-black text-slate-800">₱${Number(est.totalAmount || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                            <td class="px-6 py-3 text-right">
+                                <button onclick="deleteEstimate('${est.id}')" class="text-slate-300 hover:text-red-500 transition">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+                lucide.createIcons();
+            }
+            openModal('estimateHistoryModal');
+        };
+
+        window.saveEstimate = async () => {
+            const currentId = document.getElementById('currentEstimateId').value;
+            const refNumber = document.getElementById('refNumber').textContent;
+            const clientName = document.getElementById('estClientName').value.toUpperCase();
+            const projectTitle = document.getElementById('estProjectTitle').value.toUpperCase();
+            const totalAmountStr = document.getElementById('estimateGrandTotal').textContent.replace(/[₱,]/g, '');
+            const totalAmount = parseFloat(totalAmountStr) || 0;
+
+            if (activeEstimateItems.length === 0) return alert("Estimate is empty.");
+
+            // Construct snapshot of items (store price at this moment)
+            const snapshotItems = activeEstimateItems.map(item => ({
+                id: item.id,
+                idNo: item.idNo,
+                name: item.name,
+                brand: item.brand,
+                unit: item.unit,
+                price: item.price, // Important: Store current price
+                qty: item.qty
+            }));
+
+            const estimateData = {
+                refNumber,
+                clientName,
+                projectName: projectTitle,
+                items: snapshotItems,
+                totalAmount,
+                updatedAt: serverTimestamp()
+            };
+
+            try {
+                if (currentId) {
+                    // Update existing
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'estimates', currentId), estimateData);
+                } else {
+                    // Create new
+                    estimateData.createdAt = serverTimestamp();
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'estimates'), estimateData);
+                }
+                
+                await fetchEstimates(); // Refresh local list
+                alert("Estimate saved successfully!");
+                // Optionally close modal or switch button state?
+                // For now, reload the saved ID so future clicks update it
+                if (!currentId) {
+                     // If we just created, we need to find it or just close. 
+                     // Simplest: close modal to avoid confusion
+                     closeModal('estimateModal');
+                }
+            } catch (err) {
+                console.error("Save estimate error:", err);
+                alert("Failed to save estimate.");
+            }
+        };
+
+        window.loadEstimate = (id) => {
+            const estimate = estimates.find(e => e.id === id);
+            if (!estimate) return;
+
+            // Close history modal first
+            closeModal('estimateHistoryModal');
+
+            // Set State
+            document.getElementById('currentEstimateId').value = estimate.id;
+            
+            // Populate Fields
+            const dateStr = estimate.createdAt ? new Date(estimate.createdAt.seconds * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A';
             document.getElementById('estimateDateDisplay').textContent = dateStr;
-            document.getElementById('refNumber').textContent = Date.now().toString().slice(-6);
-            renderEstimateItems(selectedItems);
+            document.getElementById('refNumber').textContent = estimate.refNumber;
+            document.getElementById('estClientName').value = estimate.clientName || '';
+            document.getElementById('estProjectTitle').value = estimate.projectName || '';
+            
+            // Trigger print preview update
+            document.getElementById('printClientName').textContent = estimate.clientName || 'N/A';
+            document.getElementById('printProjectTitle').textContent = estimate.projectName || 'N/A';
+
+            // Load Items Snapshot
+            activeEstimateItems = estimate.items.map(i => ({...i})); // Deep copy
+            
+            updateEstimateHeaderUI();
+            renderActiveEstimateItems();
+            
+            // Update button text
+            document.getElementById('saveBtnText').textContent = "Update";
+            
             document.body.classList.add('printing-estimate');
             openModal('estimateModal');
         };
 
-        const renderEstimateItems = (selectedItems) => {
+        window.deleteEstimate = (id) => {
+            showConfirm(
+                'Delete Estimate', 
+                'Are you sure you want to delete this saved estimate record?', 
+                'danger', 
+                'Delete', 
+                async () => {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'estimates', id));
+                    await fetchEstimates();
+                    openEstimateHistory(); // Refresh view
+                }
+            );
+        };
+
+        window.openNewEstimate = () => {
+            if (selectedIds.size === 0) return;
+            
+            // Clear current ID (New Mode)
+            document.getElementById('currentEstimateId').value = "";
+            document.getElementById('saveBtnText').textContent = "Save";
+
+            // Prepare Data
+            const selectedCatalogItems = items.filter(i => selectedIds.has(i.id));
+            activeEstimateItems = selectedCatalogItems.map(item => ({
+                ...item,
+                qty: estimateQuantities[item.id] || 1
+            }));
+
+            // Standard Header Init
+            updateEstimateHeaderUI();
+            const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+            document.getElementById('estimateDateDisplay').textContent = dateStr;
+            document.getElementById('refNumber').textContent = Date.now().toString().slice(-6);
+            
+            // Clear inputs
+            document.getElementById('estClientName').value = "";
+            document.getElementById('estProjectTitle').value = "";
+            document.getElementById('printClientName').textContent = "";
+            document.getElementById('printProjectTitle').textContent = "";
+
+            renderActiveEstimateItems();
+            document.body.classList.add('printing-estimate');
+            openModal('estimateModal');
+        };
+
+        // Replaces the old renderEstimateItems to use local activeEstimateItems state
+        const renderActiveEstimateItems = () => {
             const container = document.getElementById('estimateItemsBody');
             let grandTotal = 0;
-            container.innerHTML = selectedItems.map(item => {
-                const qty = estimateQuantities[item.id] || 1;
-                const total = item.price * qty;
+
+            container.innerHTML = activeEstimateItems.map(item => {
+                const total = item.price * item.qty;
                 grandTotal += total;
+
                 return `
                     <tr class="hover:bg-slate-50 transition-colors align-top border-b border-slate-50 last:border-0">
                         <td class="px-4 py-3">
@@ -702,12 +959,17 @@
                         </td>
                         <td class="px-4 py-3 text-center">
                             <div class="flex items-center justify-center gap-2 no-print">
-                                <input type="number" value="${qty}" min="1" 
-                                    onchange="updateEstimateQty('${item.id}', this.value)"
-                                    class="w-16 p-1.5 border border-slate-200 rounded text-center font-bold text-xs outline-none focus:border-blue-500">
-                                <span class="text-[9px] font-black text-slate-400 uppercase">${item.unit}</span>
+                                <button onclick="updateActiveEstimateQty('${item.id}', -1)" class="w-6 h-6 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-600">
+                                    <i data-lucide="minus" class="w-3 h-3"></i>
+                                </button>
+                                <input type="number" value="${item.qty}" min="1" 
+                                    onchange="updateActiveEstimateQtyInput('${item.id}', this.value)"
+                                    class="w-12 p-1 border border-slate-200 rounded text-center font-bold text-xs outline-none focus:border-blue-500">
+                                <button onclick="updateActiveEstimateQty('${item.id}', 1)" class="w-6 h-6 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded text-slate-600">
+                                    <i data-lucide="plus" class="w-3 h-3"></i>
+                                </button>
                             </div>
-                            <span class="print-only font-bold text-xs">${qty} ${item.unit}</span>
+                            <span class="print-only font-bold">${item.qty} ${item.unit}</span>
                         </td>
                         <td class="px-4 py-3 text-right font-bold text-slate-600 whitespace-nowrap">
                             ₱${Number(item.price).toLocaleString(undefined, {minimumFractionDigits: 2})}
@@ -718,38 +980,73 @@
                     </tr>
                 `;
             }).join('');
+
             document.getElementById('estimateGrandTotal').textContent = `₱${Number(grandTotal).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             lucide.createIcons();
         };
 
+        window.updateActiveEstimateQty = (id, change) => {
+            const item = activeEstimateItems.find(i => i.id === id);
+            if (item) {
+                item.qty = Math.max(0, item.qty + change);
+                if (item.qty === 0) {
+                    if(confirm("Remove this item from the estimate?")) {
+                        activeEstimateItems = activeEstimateItems.filter(i => i.id !== id);
+                    } else {
+                        item.qty = 1;
+                    }
+                }
+                renderActiveEstimateItems();
+            }
+        };
+
+        window.updateActiveEstimateQtyInput = (id, val) => {
+             const item = activeEstimateItems.find(i => i.id === id);
+             if (item) {
+                const newQty = parseInt(val);
+                if (newQty > 0) {
+                    item.qty = newQty;
+                } else {
+                    item.qty = 1; // Prevent 0/negative via input
+                }
+                renderActiveEstimateItems();
+             }
+        };
+
+        // --- OLD LOGIC UPDATES ---
+        
         window.updateEstimateQty = (id, val) => {
+            // Updated to support selection mode cache still (for main table context)
             estimateQuantities[id] = Math.max(1, parseInt(val) || 1);
-            const selectedItems = items.filter(i => selectedIds.has(i.id));
-            renderEstimateItems(selectedItems);
         };
         
-        // Data binding for print preview display
+        // Real-time link for print preview
         document.getElementById('estProjectTitle').addEventListener('input', (e) => {
-            document.getElementById('printProjectTitle').textContent = e.target.value.toUpperCase() || 'N/A';
+            document.getElementById('printProjectTitle').textContent = e.target.value || 'N/A';
         });
         document.getElementById('estClientName').addEventListener('input', (e) => {
-            document.getElementById('printClientName').textContent = e.target.value.toUpperCase() || 'N/A';
+            document.getElementById('printClientName').textContent = e.target.value || 'N/A';
         });
 
         window.openAnalytics = (itemId) => {
             const item = items.find(i => i.id === itemId);
             if (!item) return;
+
             const itemHistory = logs
                 .filter(l => l.itemId === itemId && (l.action === 'EDIT' || l.action === 'ADD'))
                 .sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+
             document.getElementById('analyticsItemName').textContent = item.name;
             document.getElementById('analyticsItemID').textContent = `Catalog ID: #${item.idNo}`;
             document.getElementById('analyticsCurrentPrice').textContent = `₱${Number(item.price).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            
             const timeline = document.getElementById('analyticsTimeline');
             const trendBadge = document.getElementById('analyticsTrendBadge');
+            
             if (itemHistory.length > 1) {
                 const latestPrice = item.price;
                 const prevPrice = itemHistory[1].price || 0;
+                
                 if (latestPrice > prevPrice && prevPrice !== 0) {
                     trendBadge.className = "px-2 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1 bg-red-100 text-red-600";
                     trendBadge.innerHTML = `<i data-lucide="trending-up" class="w-3 h-3"></i> Increased`;
@@ -764,10 +1061,12 @@
                 trendBadge.className = "px-2 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1 bg-slate-100 text-slate-500";
                 trendBadge.innerHTML = `No History`;
             }
+
             timeline.innerHTML = itemHistory.map((log, idx) => {
                 const date = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString([], {month:'short', day:'numeric', year:'numeric'}) : 'Initial Record';
                 const time = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
                 const price = log.price ? `₱${Number(log.price).toLocaleString(undefined, {minimumFractionDigits: 2})}` : 'N/A';
+                
                 return `
                     <div class="relative">
                         <div class="absolute -left-[27px] top-1 w-3 h-3 rounded-full border-2 border-white shadow-sm ${idx === 0 ? 'bg-blue-600' : 'bg-slate-300'}"></div>
@@ -776,11 +1075,14 @@
                                 <p class="text-[10px] font-black text-slate-800 uppercase">${log.action === 'ADD' ? 'Initially Listed' : 'Price Updated'}</p>
                                 <p class="text-[8px] font-bold text-slate-400 uppercase">${date} • ${time}</p>
                             </div>
-                            <div class="text-right"><p class="text-[11px] font-black text-slate-800">${price}</p></div>
+                            <div class="text-right">
+                                <p class="text-[11px] font-black text-slate-800">${price}</p>
+                            </div>
                         </div>
                     </div>
                 `;
             }).join('');
+
             openModal('analyticsModal');
             lucide.createIcons();
         };
@@ -789,6 +1091,7 @@
             closeModal('logsModal');
             document.getElementById('searchInput').value = idNo;
             render();
+            
             setTimeout(() => {
                 const rows = document.querySelectorAll('#materialsTableBody tr');
                 for (let row of rows) {
@@ -831,7 +1134,8 @@
             document.getElementById('tableContainer').classList.add('hidden');
             try {
                 fetchBoardMessage();
-                fetchEstimateSettings();
+                fetchEstimateSettings(); // Load estimate settings
+                await fetchEstimates(); // Load estimate history
                 const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'materials'));
                 items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 await fetchLogs();
@@ -850,6 +1154,7 @@
             if (id === 'loginModal') {
                 document.getElementById('loginError').classList.add('hidden');
                 document.getElementById('loginPassword').value = '';
+                document.getElementById('loginContent').classList.remove('error-shake');
             }
             if (id === 'itemModal' && mode === 'add') {
                 document.getElementById('itemForm').reset();
@@ -861,25 +1166,33 @@
 
         window.closeModal = (id) => {
             document.getElementById(id).classList.remove('active');
-            if(id === 'estimateModal') document.body.classList.remove('printing-estimate');
+            if(id === 'estimateModal') {
+                document.body.classList.remove('printing-estimate');
+            }
         };
 
         window.submitLogin = () => {
             const passwordInput = document.getElementById('loginPassword');
+            const errorBanner = document.getElementById('loginError');
+            const loginContent = document.getElementById('loginContent');
+
             if (passwordInput.value === 'admin') {
                 isAdmin = true;
                 document.getElementById('adminControls').classList.remove('hidden');
                 document.getElementById('loginBtn').classList.add('hidden');
                 document.getElementById('editMessageBtn').classList.remove('hidden');
                 document.querySelectorAll('.admin-only-header').forEach(el => el.classList.remove('hidden'));
+                if (isSelectionMode) document.getElementById('adminBulkActions').classList.remove('hidden');
                 closeModal('loginModal');
                 render();
                 fetchLogs();
             } else {
-                document.getElementById('loginError').classList.remove('hidden');
-                document.getElementById('loginContent').classList.add('error-shake');
-                setTimeout(() => document.getElementById('loginContent').classList.remove('error-shake'), 400);
+                errorBanner.classList.remove('hidden');
+                loginContent.classList.remove('error-shake');
+                void loginContent.offsetWidth;
+                loginContent.classList.add('error-shake');
                 passwordInput.value = '';
+                passwordInput.focus();
             }
         };
 
@@ -888,10 +1201,15 @@
             document.getElementById('selectionLabel').textContent = isSelectionMode ? 'Cancel Selection' : 'Selection Mode';
             document.getElementById('selectionInfo').classList.toggle('hidden', !isSelectionMode);
             document.getElementById('selectHeader').classList.toggle('hidden', !isSelectionMode);
+            document.getElementById('adminBulkActions').classList.toggle('hidden', !(isSelectionMode && isAdmin));
+            
             if (!isSelectionMode) {
                 selectedIds.clear();
                 estimateQuantities = {};
                 document.getElementById('selectedCount').textContent = '0';
+                document.body.classList.remove('selection-active-print');
+            } else {
+                document.body.classList.add('selection-active-print');
             }
             render();
         };
@@ -910,6 +1228,31 @@
             render();
         };
 
+        window.bulkDelete = () => {
+            if (selectedIds.size === 0) return;
+            showConfirm(
+                'Bulk Delete', 
+                `Are you sure you want to delete ${selectedIds.size} selected items? This action cannot be undone.`, 
+                'danger', 
+                'Delete All', 
+                async () => {
+                    const batch = writeBatch(db);
+                    const deletedNames = [];
+                    selectedIds.forEach(id => {
+                        const item = items.find(i => i.id === id);
+                        if (item) {
+                            deletedNames.push(item.name);
+                            batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
+                        }
+                    });
+                    await batch.commit();
+                    createLog('DELETE', `BULK DELETE: ${deletedNames.length} ITEMS`, '', '');
+                    selectedIds.clear();
+                    refreshData();
+                }
+            );
+        };
+
         window.handleSort = (key) => {
             sortConfig.direction = (sortConfig.key === key && sortConfig.direction === 'asc') ? 'desc' : 'asc';
             sortConfig.key = key;
@@ -919,6 +1262,7 @@
         const render = () => {
             const rawTerm = document.getElementById('searchInput').value.toLowerCase();
             const term = rawTerm.trim();
+            
             let range = null;
             if (term.includes('-')) {
                 const parts = term.split('-').map(p => parseInt(p));
@@ -926,35 +1270,61 @@
                     range = { start: Math.min(...parts), end: Math.max(...parts) };
                 }
             }
+
             const filtered = items.filter(i => {
                 const idInt = parseInt(i.idNo);
                 if (range) return idInt >= range.start && idInt <= range.end;
                 return (i.name || '').toLowerCase().includes(term) || 
-                       (i.idNo || '').toString().includes(term);
+                       (i.idNo || '').toString().includes(term) ||
+                       (i.brand || '').toLowerCase().includes(term) ||
+                       (i.supplier || '').toLowerCase().includes(term);
             }).sort((a, b) => {
                 let v1 = a[sortConfig.key], v2 = b[sortConfig.key];
                 if (sortConfig.key === 'idNo' || sortConfig.key === 'price') { v1 = parseFloat(v1) || 0; v2 = parseFloat(v2) || 0; }
                 return sortConfig.direction === 'asc' ? (v1 > v2 ? 1 : -1) : (v1 < v2 ? 1 : -1);
             });
+
             const bestPrices = {};
+            const nameCounts = {};
             filtered.forEach(item => {
                 const nameKey = item.name.trim().toUpperCase();
-                if (!bestPrices[nameKey] || item.price < bestPrices[nameKey]) bestPrices[nameKey] = item.price;
+                nameCounts[nameKey] = (nameCounts[nameKey] || 0) + 1;
+                if (!bestPrices[nameKey] || item.price < bestPrices[nameKey]) {
+                    bestPrices[nameKey] = item.price;
+                }
             });
+
             document.getElementById('materialsTableBody').innerHTML = filtered.map(i => {
                 const brandInfo = [i.brand, i.supplier].filter(Boolean).join(' / ') || '-';
+                const nameKey = i.name.trim().toUpperCase();
+                const isBestPrice = nameCounts[nameKey] > 1 && i.price === bestPrices[nameKey];
+                const hasCompetition = nameCounts[nameKey] > 1;
+
+                const historyCount = logs.filter(l => l.itemId === i.id).length;
+
                 return `
-                <tr onclick="toggleRowSelection('${i.id}')" class="${selectedIds.has(i.id) ? 'selected-row' : 'hover:bg-slate-50'} transition-all cursor-pointer">
+                <tr onclick="toggleRowSelection('${i.id}')" 
+                    class="${selectedIds.has(i.id) ? 'selected-row' : 'hover:bg-slate-50'} 
+                           ${hasCompetition ? 'border-l-4 border-l-blue-100' : ''} 
+                           transition-all cursor-pointer">
                     <td class="${isSelectionMode ? '' : 'hidden'} px-3 py-4 no-print">
                         <div class="w-4 h-4 border rounded ${selectedIds.has(i.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}"></div>
                     </td>
                     <td class="px-4 py-4 text-blue-600 font-mono font-black">#${i.idNo}</td>
-                    <td class="px-4 py-4"><span class="font-bold uppercase">${i.name}</span></td>
+                    <td class="px-4 py-4">
+                        <div class="flex flex-col">
+                            <span class="font-bold uppercase">${i.name}</span>
+                            <div class="flex gap-2 mt-1">
+                                ${isBestPrice ? '<span class="text-[8px] font-black bg-green-500 text-white px-1.5 py-0.5 rounded tracking-widest">BEST PRICE</span>' : ''}
+                                ${historyCount > 1 ? '<button onclick="event.stopPropagation(); openAnalytics(\''+i.id+'\')" class="no-print text-[8px] font-black bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded tracking-widest flex items-center gap-1 hover:bg-indigo-600 hover:text-white transition-colors">HISTORY <i data-lucide="line-chart" class="w-2 h-2"></i></button>' : ''}
+                            </div>
+                        </div>
+                    </td>
                     <td class="md:table-cell px-4 py-4 text-slate-400 font-bold uppercase">${brandInfo}</td>
                     <td class="px-4 py-4 text-right">
                         <div class="price-grid" onclick="event.stopPropagation(); openAnalytics('${i.id}')">
                             <span class="text-[8px] font-black text-slate-300">₱</span>
-                            <span class="price-number font-black text-blue-700">${Number(i.price).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                            <span class="price-number font-black ${isBestPrice ? 'text-green-600' : 'text-blue-700'}">${Number(i.price).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                             <span class="text-[7px] text-slate-300 uppercase">/${i.unit}</span>
                         </div>
                     </td>
@@ -1009,11 +1379,17 @@
 
         window.deleteItem = async (id) => {
             const item = items.find(i => i.id === id);
-            showConfirm('Delete Item', `Delete "${item.name}"?`, 'danger', 'Delete', async () => {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
-                createLog('DELETE', item.name, id, item.idNo);
-                refreshData();
-            });
+            showConfirm(
+                'Delete Item', 
+                `Delete "${item.name}" permanently?`, 
+                'danger', 
+                'Delete', 
+                async () => {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
+                    createLog('DELETE', item.name, id, item.idNo);
+                    refreshData();
+                }
+            );
         };
 
         window.handleExcelUpload = (e) => {
@@ -1024,24 +1400,42 @@
                 try {
                     const bstr = evt.target.result;
                     const wb = XLSX.read(bstr, { type: 'binary' });
-                    const ws = wb.Sheets[wb.SheetNames[0]];
+                    const wsname = wb.SheetNames[0];
+                    const ws = wb.Sheets[wsname];
                     const rawData = XLSX.utils.sheet_to_json(ws);
-                    const validItems = rawData.filter(row => row.Material || row.name);
+                    
+                    const validItems = rawData.filter(row => {
+                        const name = (row.Material || row.name || row.ITEM || row.MaterialName || '').toString().trim();
+                        const price = parseFloat(row.Price || row.price || row.PRICE || row.Cost || 0);
+                        return name && !isNaN(price);
+                    });
+
                     if (validItems.length > 0) {
-                        showConfirm('Excel Upload', `Upload ${validItems.length} items?`, 'info', 'Upload All', async () => {
-                            let nextIdNo = items.length > 0 ? Math.max(...items.map(i => parseInt(i.idNo) || 0)) + 1 : 1;
-                            for (const row of validItems) {
-                                const material = {
-                                    idNo: nextIdNo++,
-                                    name: (row.Material || row.name || '').toString().trim().toUpperCase(),
-                                    price: parseFloat(row.Price || row.price || 0),
-                                    unit: (row.Unit || row.unit || 'PC').toString().trim().toUpperCase(),
-                                    updatedAt: serverTimestamp()
-                                };
-                                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), material);
+                        showConfirm(
+                            'Excel Upload', 
+                            `Found ${validItems.length} valid items. Proceed to upload?`, 
+                            'info', 
+                            'Upload All', 
+                            async () => {
+                                document.getElementById('loadingState').classList.remove('hidden');
+                                let nextIdNo = items.length > 0 ? Math.max(...items.map(i => parseInt(i.idNo) || 0)) + 1 : 1;
+                                for (const row of validItems) {
+                                    const materialPrice = parseFloat(row.Price || row.price || row.PRICE || row.Cost || 0);
+                                    const material = {
+                                        idNo: nextIdNo++,
+                                        name: (row.Material || row.name || row.ITEM || row.MaterialName || '').toString().trim().toUpperCase(),
+                                        price: materialPrice,
+                                        unit: (row.Unit || row.unit || row.UNIT || 'PC').toString().trim().toUpperCase(),
+                                        brand: (row.Brand || row.brand || row.BRAND || '').toString().trim().toUpperCase(),
+                                        supplier: (row.Supplier || row.supplier || row.SUPPLIER || '').toString().trim().toUpperCase(),
+                                        updatedAt: serverTimestamp()
+                                    };
+                                    const newDoc = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), material);
+                                    createLog('ADD', material.name, newDoc.id, material.idNo, materialPrice);
+                                }
+                                refreshData();
                             }
-                            refreshData();
-                        });
+                        );
                     }
                 } catch (err) { console.error(err); }
                 e.target.value = '';
@@ -1053,6 +1447,7 @@
         window.handlePrint = () => window.print();
         window.handleLogout = () => location.reload();
         window.refreshData = refreshData;
+        window.openAnalytics = openAnalytics;
         lucide.createIcons();
     </script>
 </body>
