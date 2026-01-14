@@ -66,11 +66,13 @@
             .no-print { display: none !important; } 
             .print-only { display: block !important; }
             
-            /* Hide everything in body */
-            body > * { display: none !important; }
+            /* Global Print Resets */
+            body { background: white !important; font-size: 10pt; }
             
-            /* Show only the modal being printed */
-            body.printing-estimate { background: white !important; }
+            /* SCENARIO: PRINTING ESTIMATE */
+            /* If the body has the class 'printing-estimate', hide everything that isn't the modal */
+            body.printing-estimate > *:not(#estimateModal) { display: none !important; }
+
             body.printing-estimate #estimateModal {
                 display: block !important;
                 position: absolute !important;
@@ -99,10 +101,21 @@
                 border: none !important;
             }
 
-            .estimate-container {
+            body.printing-estimate .estimate-container {
                 overflow: visible !important;
                 height: auto !important;
                 padding: 0 10px !important; /* Slight padding for safety */
+            }
+
+            /* SCENARIO: PRINTING MAIN LIST (Default) */
+            /* If NOT printing estimate, ensure modals are hidden and main content is clean */
+            body:not(.printing-estimate) .modal { display: none !important; }
+            body:not(.printing-estimate) #messageBoard { display: none !important; }
+            body:not(.printing-estimate) #tableContainer { 
+                display: block !important; 
+                border: none !important; 
+                box-shadow: none !important; 
+                overflow: visible !important;
             }
 
             table { width: 100% !important; border-collapse: collapse !important; table-layout: fixed !important; }
