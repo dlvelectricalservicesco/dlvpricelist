@@ -118,6 +118,12 @@
                 overflow: visible !important;
             }
 
+            /* SCENARIO: SELECTION MODE PRINTING */
+            /* When selection mode is active, hide rows in the main table that are NOT selected */
+            body.selection-active-print #materialsTable tbody tr:not(.selected-row) {
+                display: none !important;
+            }
+
             table { width: 100% !important; border-collapse: collapse !important; table-layout: fixed !important; }
             th, td { word-wrap: break-word; }
             tr { page-break-inside: avoid; }
