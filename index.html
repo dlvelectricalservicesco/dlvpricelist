@@ -1304,19 +1304,30 @@
             });
 
             const bestPrices = {};
+            const highestPrices = {};
             const nameCounts = {};
             filtered.forEach(item => {
                 const nameKey = item.name.trim().toUpperCase();
                 nameCounts[nameKey] = (nameCounts[nameKey] || 0) + 1;
+                
+                // Track lowest price
                 if (!bestPrices[nameKey] || item.price < bestPrices[nameKey]) {
                     bestPrices[nameKey] = item.price;
+                }
+                
+                // Track highest price
+                if (!highestPrices[nameKey] || item.price > highestPrices[nameKey]) {
+                    highestPrices[nameKey] = item.price;
                 }
             });
 
             document.getElementById('materialsTableBody').innerHTML = filtered.map(i => {
                 const brandInfo = [i.brand, i.supplier].filter(Boolean).join(' / ') || '-';
                 const nameKey = i.name.trim().toUpperCase();
+                
                 const isBestPrice = nameCounts[nameKey] > 1 && i.price === bestPrices[nameKey];
+                // Only mark as highest if it's the most expensive AND not equal to the best price (avoids tagging if all prices are same)
+                const isHighestPrice = nameCounts[nameKey] > 1 && i.price === highestPrices[nameKey] && i.price !== bestPrices[nameKey];
                 const hasCompetition = nameCounts[nameKey] > 1;
 
                 const historyCount = logs.filter(l => l.itemId === i.id).length;
@@ -1335,6 +1346,7 @@
                             <span class="font-bold uppercase">${i.name}</span>
                             <div class="flex gap-2 mt-1">
                                 ${isBestPrice ? '<span class="text-[8px] font-black bg-green-500 text-white px-1.5 py-0.5 rounded tracking-widest">BEST PRICE</span>' : ''}
+                                ${isHighestPrice ? '<span class="text-[8px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded tracking-widest">HIGHEST PRICE</span>' : ''}
                                 ${historyCount > 1 ? '<button onclick="event.stopPropagation(); openAnalytics(\''+i.id+'\')" class="no-print text-[8px] font-black bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded tracking-widest flex items-center gap-1 hover:bg-indigo-600 hover:text-white transition-colors">HISTORY <i data-lucide="line-chart" class="w-2 h-2"></i></button>' : ''}
                             </div>
                         </div>
@@ -1343,7 +1355,7 @@
                     <td class="px-4 py-4 text-right">
                         <div class="price-grid" onclick="event.stopPropagation(); openAnalytics('${i.id}')">
                             <span class="text-[8px] font-black text-slate-300">₱</span>
-                            <span class="price-number font-black ${isBestPrice ? 'text-green-600' : 'text-blue-700'}">${Number(i.price).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                            <span class="price-number font-black ${isBestPrice ? 'text-green-600' : (isHighestPrice ? 'text-orange-600' : 'text-blue-700')}">${Number(i.price).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                             <span class="text-[7px] text-slate-300 uppercase">/${i.unit}</span>
                         </div>
                     </td>
