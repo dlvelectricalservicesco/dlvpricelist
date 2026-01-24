@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,43 +10,125 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
-        .modal { transition: opacity 0.2s ease-in-out; opacity: 0; pointer-events: none; }
-        .modal.active { opacity: 1; pointer-events: auto; }
-        .modal-content { transform: scale(0.98); transition: transform 0.2s ease-in-out; }
-        .modal.active .modal-content { transform: scale(1); }
-        .selected-row { background-color: #f0f7ff !important; }
-        
-        .price-grid { display: grid; grid-template-columns: 12px 1fr 35px; align-items: baseline; gap: 1px; width: 100%; max-width: 140px; margin-left: auto; }
-        .price-number { text-align: right; font-variant-numeric: tabular-nums; }
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --secondary: #64748b;
+            --accent: #f59e0b;
+            --bg-main: #f8fafc;
+            --glass: rgba(255, 255, 255, 0.8);
+            --border-light: rgba(226, 232, 240, 0.8);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            background-color: var(--bg-main);
+            color: #0f172a;
+        }
+
+        /* Glassmorphism */
+        .glass-nav {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .modal {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            transform: translateY(20px) scale(0.95);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .modal.active .modal-content {
+            transform: translateY(0) scale(1);
+        }
+
+        .selected-row {
+            background-color: #eff6ff !important;
+        }
+
+        .price-grid {
+            display: grid;
+            grid-template-columns: 12px 1fr 35px;
+            align-items: baseline;
+            gap: 4px;
+            width: fit-content;
+            margin-left: auto;
+        }
+
+        .price-number {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .price-currency {
+            color: #94a3b8;
+            font-size: 0.85em;
+        }
 
         @keyframes highlight-fade {
-            0% { background-color: #fef08a; transform: scale(1.02); }
-            100% { background-color: transparent; transform: scale(1); }
+            0% {
+                background-color: #fef9c3;
+                transform: scale(1.01);
+            }
+
+            100% {
+                background-color: transparent;
+                transform: scale(1);
+            }
         }
-        .item-highlight { animation: highlight-fade 2.5s ease-out forwards; z-index: 10; position: relative; }
 
-        .log-scroll { max-height: 420px; overflow-y: auto; }
-        .log-scroll::-webkit-scrollbar { width: 4px; }
-        .log-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-
-        /* Timeline Scroll for Analytics */
-        .timeline-scroll { max-height: 190px; overflow-y: auto; padding-right: 8px; }
-        .timeline-scroll::-webkit-scrollbar { width: 4px; }
-        .timeline-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
+        .item-highlight {
+            animation: highlight-fade 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            z-index: 10;
+            position: relative;
         }
-        .error-shake { animation: shake 0.2s ease-in-out 0s 2; }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
 
         @keyframes shine {
-            0% { left: -100%; }
-            20% { left: 100%; }
-            100% { left: 100%; }
+            0% {
+                left: -100%;
+            }
+
+            20% {
+                left: 100%;
+            }
+
+            100% {
+                left: 100%;
+            }
         }
+
         .shine-effect::after {
             content: '';
             position: absolute;
@@ -53,25 +136,44 @@
             left: -100%;
             width: 50%;
             height: 100%;
-            background: linear-gradient(to right, transparent, rgba(255,255,255,0.3), transparent);
+            background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25), transparent);
             transform: skewX(-25deg);
-            animation: shine 6s infinite ease-in-out;
+            animation: shine 8s infinite ease-in-out;
         }
 
-        .history-line { position: relative; }
-        .history-line::before { content: ''; position: absolute; left: 7px; top: 0; bottom: 0; width: 2px; background: #e2e8f0; }
+        /* Buttons & Interactions */
+        .btn-hover {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
-        /* --- PRINT STYLES --- */
-        @media print { 
-            .no-print { display: none !important; } 
-            .print-only { display: block !important; }
-            
-            /* Global Print Resets */
-            body { background: white !important; font-size: 10pt; }
-            
-            /* SCENARIO: PRINTING ESTIMATE */
-            /* If the body has the class 'printing-estimate', hide everything that isn't the modal */
-            body.printing-estimate > *:not(#estimateModal) { display: none !important; }
+        .btn-hover:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-hover:active {
+            transform: translateY(0);
+        }
+
+        /* Print Specifics */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+
+            .print-only {
+                display: block !important;
+            }
+
+            body {
+                background: white !important;
+                font-size: 9pt;
+                color: black;
+            }
+
+            body.printing-estimate>*:not(#estimateModal) {
+                display: none !important;
+            }
 
             body.printing-estimate #estimateModal {
                 display: block !important;
@@ -79,137 +181,163 @@
                 top: 0 !important;
                 left: 0 !important;
                 width: 100% !important;
-                height: auto !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 opacity: 1 !important;
                 background: white !important;
                 z-index: 9999 !important;
-                pointer-events: none !important;
             }
 
             body.printing-estimate #estimateModal .modal-content {
                 transform: none !important;
                 box-shadow: none !important;
-                width: 100% !important;
                 max-width: 100% !important;
-                height: auto !important;
-                max-height: none !important;
-                overflow: visible !important;
-                padding: 0 !important;
-                margin: 0 !important;
                 border: none !important;
             }
 
-            body.printing-estimate .estimate-container {
-                overflow: visible !important;
-                height: auto !important;
-                padding: 0 10px !important; /* Slight padding for safety */
+            table {
+                width: 100% !important;
+                border-collapse: collapse !important;
             }
 
-            /* SCENARIO: PRINTING MAIN LIST (Default) */
-            /* If NOT printing estimate, ensure modals are hidden and main content is clean */
-            body:not(.printing-estimate) .modal { display: none !important; }
-            body:not(.printing-estimate) #messageBoard { display: none !important; }
-            body:not(.printing-estimate) #tableContainer { 
-                display: block !important; 
-                border: none !important; 
-                box-shadow: none !important; 
-                overflow: visible !important;
+            tr {
+                page-break-inside: avoid;
             }
 
-            /* SCENARIO: SELECTION MODE PRINTING */
-            /* When selection mode is active, hide rows in the main table that are NOT selected */
-            body.selection-active-print #materialsTable tbody tr:not(.selected-row) {
-                display: none !important;
+            @page {
+                margin: 1cm;
+                size: auto;
             }
-
-            table { width: 100% !important; border-collapse: collapse !important; table-layout: fixed !important; }
-            th, td { word-wrap: break-word; }
-            tr { page-break-inside: avoid; }
-            
-            @page { margin: 0.5cm; size: auto; }
         }
-        .print-only { display: none; }
+
+        .print-only {
+            display: none;
+        }
     </style>
 </head>
+
 <body class="bg-slate-50 text-slate-900 min-h-screen">
 
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm no-print">
+    <header class="glass-nav sticky top-0 z-40 no-print transition-all duration-300">
         <div class="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
-            <div class="flex items-center gap-2">
-                <div class="bg-blue-600 p-1.5 rounded-lg text-white"><i data-lucide="package" class="w-5 h-5"></i></div>
-                <h1 class="text-sm sm:text-lg font-bold uppercase tracking-tight">DLV Materials Pricelist</h1>
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-2 rounded-xl text-white shadow-lg shadow-blue-200 interaction-point">
+                    <i data-lucide="package" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h1 class="text-sm sm:text-base font-black uppercase tracking-tight text-slate-800 leading-none">DLV
+                        Materials</h1>
+                    <p class="text-[9px] font-bold text-slate-400 tracking-widest uppercase mt-0.5">Price Inventory</p>
+                </div>
             </div>
-            
-            <div class="flex items-center gap-1 sm:gap-3">
-                <button onclick="refreshData()" class="p-2 text-slate-500 hover:text-blue-600 transition" title="Refresh Data">
-                    <i data-lucide="refresh-cw" class="w-4 h-4 sm:w-5 sm:h-5"></i>
-                </button>
-                <button onclick="openEstimateHistory()" class="p-2 text-slate-500 hover:text-blue-600 transition" title="Estimate History">
-                    <i data-lucide="file-clock" class="w-4 h-4 sm:w-5 sm:h-5"></i>
-                </button>
-                <button id="selectionToggle" onclick="toggleSelectionMode()" class="p-2 sm:px-3 sm:py-2 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition">
-                    <i data-lucide="check-square" class="w-4 h-4 sm:hidden"></i>
-                    <span id="selectionLabel" class="hidden sm:inline uppercase text-[10px] font-black">Selection Mode</span>
+
+            <div class="flex items-center gap-2 sm:gap-4">
+                <div
+                    class="hidden md:flex items-center gap-1 bg-slate-100/50 p-1 rounded-xl border border-slate-200/50">
+                    <button onclick="refreshData()"
+                        class="p-2 text-slate-500 hover:text-blue-600 hover:bg-white rounded-lg transition-all"
+                        title="Refresh Data">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="openEstimateHistory()"
+                        class="p-2 text-slate-500 hover:text-blue-600 hover:bg-white rounded-lg transition-all"
+                        title="Estimate History">
+                        <i data-lucide="file-clock" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <button id="selectionToggle" onclick="toggleSelectionMode()"
+                    class="btn-hover px-3 py-2 bg-white text-slate-600 rounded-xl border border-slate-200 text-[10px] font-black uppercase flex items-center gap-2">
+                    <i data-lucide="check-square" class="w-4 h-4"></i>
+                    <span id="selectionLabel" class="hidden sm:inline">Selection Mode</span>
                 </button>
 
-                <div id="adminControls" class="hidden flex items-center gap-1 sm:gap-3 border-l border-slate-200 pl-2 sm:pl-3">
-                    <button onclick="openModal('logsModal')" class="p-2 text-slate-500 hover:text-blue-600 transition" title="View History">
-                        <i data-lucide="history" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                <div id="adminControls" class="hidden flex items-center gap-2 border-l border-slate-200 pl-2 sm:pl-4">
+                    <button onclick="openModal('logsModal')" class="p-2 text-slate-400 hover:text-blue-600 transition"
+                        title="Logs">
+                        <i data-lucide="history" class="w-4 h-4"></i>
                     </button>
-                    <input type="file" id="excelInput" accept=".xlsx, .xls" class="hidden" onchange="handleExcelUpload(event)">
-                    <button onclick="document.getElementById('excelInput').click()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition">
+                    <input type="file" id="excelInput" accept=".xlsx, .xls" class="hidden"
+                        onchange="handleExcelUpload(event)">
+                    <button onclick="document.getElementById('excelInput').click()"
+                        class="p-2 text-slate-400 hover:text-blue-600 transition" title="Upload Excel">
                         <i data-lucide="file-up" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="openModal('itemModal', 'add')" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 transition">Add</button>
-                    <button onclick="handleLogout()" class="p-2 text-slate-400 hover:text-red-500 transition"><i data-lucide="log-out" class="w-4 h-4"></i></button>
+                    <button onclick="openModal('itemModal', 'add')"
+                        class="btn-hover bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-md shadow-blue-100">Add
+                        Item</button>
+                    <button onclick="handleLogout()" class="p-2 text-slate-300 hover:text-red-500 transition"><i
+                            data-lucide="log-out" class="w-4 h-4"></i></button>
                 </div>
-                <button id="loginBtn" onclick="openModal('loginModal')" class="text-[10px] font-black uppercase text-slate-400 hover:text-blue-600 px-2 transition-colors">Admin</button>
+
+                <button id="loginBtn" onclick="openModal('loginModal')"
+                    class="text-[10px] font-black uppercase text-slate-400 hover:text-blue-600 px-2 transition-colors">Admin</button>
             </div>
         </div>
     </header>
 
     <main class="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-8">
-        <div id="messageBoard" class="mb-6 bg-gradient-to-br from-indigo-600 via-blue-600 to-blue-700 rounded-2xl p-5 sm:p-7 shadow-xl text-white relative overflow-hidden shine-effect">
-            <div class="relative z-10">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2">
-                        <span class="text-[10px] font-black uppercase tracking-widest bg-yellow-500 text-blue-900 px-2.5 py-1 rounded-full shadow-sm">Updates</span>
-                    </div>
-                    <button id="editMessageBtn" onclick="openMessageModal()" class="hidden bg-white/20 hover:bg-white/30 p-2 rounded-xl transition no-print backdrop-blur-md">
-                        <i data-lucide="edit-3" class="w-4 h-4"></i>
-                    </button>
+        <div id="messageBoard"
+            class="mb-8 bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 rounded-3xl p-6 sm:p-8 shadow-2xl text-white relative overflow-hidden shine-effect border border-blue-400/20">
+            <div class="relative z-10 flex flex-col sm:flex-row gap-6 items-start sm:items-center">
+                <div class="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 shadow-inner">
+                    <i data-lucide="megaphone" class="w-8 h-8 text-yellow-300"></i>
                 </div>
-                <h2 id="boardTitle" class="text-xl sm:text-2xl font-black uppercase mb-2 tracking-tight">Latest Updates</h2>
-                <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-                    <p id="boardContent" class="text-sm font-semibold whitespace-pre-wrap leading-relaxed">Loading message...</p>
+                <div class="flex-1">
+                    <div class="flex items-center justify-between mb-2">
+                        <span
+                            class="text-[9px] font-black uppercase tracking-[0.2em] bg-yellow-400 text-blue-900 px-3 py-1 rounded-full shadow-lg shadow-yellow-400/20">Announcements</span>
+                        <button id="editMessageBtn" onclick="openMessageModal()"
+                            class="hidden bg-white/10 hover:bg-white/20 p-2 rounded-xl transition-all border border-white/10">
+                            <i data-lucide="edit-3" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    <h2 id="boardTitle" class="text-xl sm:text-2xl font-black uppercase tracking-tight mb-2">Notice
+                        Board</h2>
+                    <p id="boardContent"
+                        class="text-sm font-medium text-blue-50/90 whitespace-pre-wrap leading-relaxed max-w-2xl">
+                        Loading the latest price updates and announcements...</p>
                 </div>
             </div>
+            <!-- Decorative background elements -->
+            <div class="absolute -right-10 -top-10 w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
+            <div class="absolute -left-10 -bottom-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl"></div>
         </div>
 
-        <div id="selectionInfo" class="hidden no-print mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center">
+        <div id="selectionInfo"
+            class="hidden no-print mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center">
             <div class="flex items-center gap-3">
-                <p class="text-[10px] text-blue-700 font-bold uppercase"><span id="selectedCount">0</span> items selected</p>
+                <p class="text-[10px] text-blue-700 font-bold uppercase"><span id="selectedCount">0</span> items
+                    selected</p>
                 <div id="estimateAction" class="flex gap-2 border-l border-blue-200 pl-3">
-                    <button onclick="openNewEstimate()" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 flex items-center gap-2">
+                    <button onclick="openNewEstimate()"
+                        class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 flex items-center gap-2">
                         <i data-lucide="file-plus" class="w-3.5 h-3.5"></i> Create Estimate
                     </button>
                 </div>
                 <div id="adminBulkActions" class="hidden flex gap-2 border-l border-blue-200 pl-3">
-                    <button onclick="bulkDelete()" class="text-[10px] text-red-600 font-black uppercase hover:underline">Delete Selected</button>
+                    <button onclick="bulkDelete()"
+                        class="text-[10px] text-red-600 font-black uppercase hover:underline">Delete Selected</button>
                 </div>
             </div>
-            <button onclick="clearSelection()" class="text-[10px] text-blue-600 font-black uppercase">Clear Selection</button>
+            <button onclick="clearSelection()" class="text-[10px] text-blue-600 font-black uppercase">Clear
+                Selection</button>
         </div>
 
-        <div class="mb-4 no-print flex gap-2">
-            <div class="relative flex-1">
-                <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
-                <input type="text" id="searchInput" placeholder="SEARCH MATERIALS OR #ID..." class="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl outline-none text-sm uppercase shadow-sm focus:border-blue-500 transition-all bg-white">
+        <div class="mb-6 no-print flex gap-3">
+            <div class="relative flex-1 group">
+                <i data-lucide="search"
+                    class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
+                <input type="text" id="searchInput" placeholder="Search materials, brands, or ID numbers..."
+                    class="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl outline-none text-sm font-medium shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all">
+                <div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                    <span
+                        class="px-2 py-1 bg-slate-100 text-[9px] font-black rounded border border-slate-200 text-slate-400">ESC</span>
+                </div>
             </div>
-            <button onclick="handlePrint()" class="px-4 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition">
-                <i data-lucide="printer" class="w-4 h-4 text-slate-600"></i>
+            <button onclick="handlePrint()"
+                class="px-5 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm group">
+                <i data-lucide="printer" class="w-5 h-5 text-slate-500 group-hover:text-slate-800"></i>
             </button>
         </div>
 
@@ -220,76 +348,111 @@
 
         <div id="tableContainer" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="overflow-x-auto w-full">
-                <table id="materialsTable" class="w-full text-left border-collapse">
-                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                <table id="materialsTable" class="w-full text-left border-separate border-spacing-0">
+                    <thead class="bg-slate-50/50 sticky top-0 z-10">
                         <tr class="header-row">
-                            <th id="selectHeader" class="hidden px-3 py-4 w-10 no-print"></th>
-                            <th class="px-4 py-4 w-16 cursor-pointer" onclick="handleSort('idNo')">ID</th>
-                            <th class="px-4 py-4 cursor-pointer" onclick="handleSort('name')">Material</th>
-                            <th class="md:table-cell px-4 py-4">Brand/Supplier</th>
-                            <th class="px-4 py-4 text-right cursor-pointer" onclick="handleSort('price')">Price</th>
-                            <th class="admin-only-header hidden px-4 py-4 text-right no-print">Actions</th>
+                            <th id="selectHeader" class="hidden px-4 py-4 w-12 no-print border-b border-slate-200"></th>
+                            <th class="px-6 py-4 w-20 cursor-pointer border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest"
+                                onclick="handleSort('idNo')">
+                                <div class="flex items-center gap-2">ID <i data-lucide="chevrons-up-down"
+                                        class="w-3 h-3"></i></div>
+                            </th>
+                            <th class="px-6 py-4 cursor-pointer border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest"
+                                onclick="handleSort('name')">
+                                <div class="flex items-center gap-2">Material Description <i
+                                        data-lucide="chevrons-up-down" class="w-3 h-3"></i></div>
+                            </th>
+                            <th
+                                class="md:table-cell px-6 py-4 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                Brand / Supplier</th>
+                            <th class="px-6 py-4 text-right cursor-pointer border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest"
+                                onclick="handleSort('price')">
+                                <div class="flex items-center justify-end gap-2">Price <i data-lucide="chevrons-up-down"
+                                        class="w-3 h-3"></i></div>
+                            </th>
+                            <th
+                                class="admin-only-header hidden px-6 py-4 text-right no-print border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="materialsTableBody" class="divide-y divide-slate-100 text-[11px] sm:text-xs font-medium"></tbody>
+                    <tbody id="materialsTableBody" class="divide-y divide-slate-100 text-[11px] sm:text-xs"></tbody>
                 </table>
             </div>
         </div>
     </main>
 
     <!-- Estimate Settings Modal -->
-    <div id="estimateSettingsModal" class="modal fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div id="estimateSettingsModal"
+        class="modal fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div class="modal-content bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
             <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
                 <h3 class="text-sm font-black uppercase tracking-tight">Configure Estimate Template</h3>
-                <button onclick="closeModal('estimateSettingsModal')" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+                <button onclick="closeModal('estimateSettingsModal')" class="text-slate-400 hover:text-slate-600 p-1"><i
+                        data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <div class="p-6 space-y-4 overflow-y-auto">
                 <div>
                     <label class="text-[10px] font-black uppercase text-slate-500 mb-2 block">Company Logo</label>
                     <div class="flex items-center gap-4">
-                        <div id="settingsLogoPreview" class="w-16 h-16 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center overflow-hidden">
+                        <div id="settingsLogoPreview"
+                            class="w-16 h-16 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center overflow-hidden">
                             <i data-lucide="image" class="w-6 h-6 text-slate-300"></i>
                         </div>
-                        <input type="file" id="logoUploadInput" accept="image/*" class="hidden" onchange="handleLogoSelect(event)">
+                        <input type="file" id="logoUploadInput" accept="image/*" class="hidden"
+                            onchange="handleLogoSelect(event)">
                         <div class="flex flex-col gap-2">
-                            <button onclick="document.getElementById('logoUploadInput').click()" class="text-xs font-bold uppercase text-blue-600 border border-blue-200 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100">Upload New Logo</button>
-                            <button onclick="removeLogo()" class="text-[10px] font-black uppercase text-red-500 hover:underline text-left">Remove Logo</button>
+                            <button onclick="document.getElementById('logoUploadInput').click()"
+                                class="text-xs font-bold uppercase text-blue-600 border border-blue-200 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100">Upload
+                                New Logo</button>
+                            <button onclick="removeLogo()"
+                                class="text-[10px] font-black uppercase text-red-500 hover:underline text-left">Remove
+                                Logo</button>
                         </div>
                     </div>
                 </div>
                 <div>
-                    <label class="text-[10px] font-black uppercase text-slate-500 mb-1 block">Company Name / Title</label>
-                    <input type="text" id="settingCompanyName" placeholder="E.G. DLV CONSTRUCTION SUPPLY" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs uppercase outline-none focus:border-blue-500">
+                    <label class="text-[10px] font-black uppercase text-slate-500 mb-1 block">Company Name /
+                        Title</label>
+                    <input type="text" id="settingCompanyName" placeholder="E.G. DLV CONSTRUCTION SUPPLY"
+                        class="w-full p-2.5 border border-slate-200 rounded-lg text-xs uppercase outline-none focus:border-blue-500">
                 </div>
                 <div>
-                    <label class="text-[10px] font-black uppercase text-slate-500 mb-1 block">Company Address / Contact Info</label>
-                    <textarea id="settingCompanyInfo" rows="3" placeholder="ADDRESS, PHONE, EMAIL..." class="w-full p-2.5 border border-slate-200 rounded-lg text-xs uppercase outline-none focus:border-blue-500 font-medium"></textarea>
+                    <label class="text-[10px] font-black uppercase text-slate-500 mb-1 block">Company Address / Contact
+                        Info</label>
+                    <textarea id="settingCompanyInfo" rows="3" placeholder="ADDRESS, PHONE, EMAIL..."
+                        class="w-full p-2.5 border border-slate-200 rounded-lg text-xs uppercase outline-none focus:border-blue-500 font-medium"></textarea>
                 </div>
                 <div>
                     <label class="text-[10px] font-black uppercase text-slate-500 mb-1 block">Footer Text</label>
-                    <textarea id="settingFooterText" rows="2" placeholder="Example: Thank you for your business!" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs uppercase outline-none focus:border-blue-500 font-medium"></textarea>
+                    <textarea id="settingFooterText" rows="2" placeholder="Example: Thank you for your business!"
+                        class="w-full p-2.5 border border-slate-200 rounded-lg text-xs uppercase outline-none focus:border-blue-500 font-medium"></textarea>
                 </div>
             </div>
             <div class="p-5 border-t border-slate-100 bg-slate-50 rounded-b-2xl">
-                <button onclick="saveEstimateSettings()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-black uppercase text-xs hover:bg-blue-700 transition">Save Configuration</button>
+                <button onclick="saveEstimateSettings()"
+                    class="w-full bg-blue-600 text-white py-3 rounded-lg font-black uppercase text-xs hover:bg-blue-700 transition">Save
+                    Configuration</button>
             </div>
         </div>
     </div>
 
     <!-- Estimate History Modal -->
-    <div id="estimateHistoryModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div id="estimateHistoryModal"
+        class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div class="modal-content bg-white rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[85vh]">
             <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
                 <div class="flex items-center gap-2">
-                    <div class="bg-blue-600 p-1.5 rounded-lg text-white"><i data-lucide="file-clock" class="w-4 h-4"></i></div>
+                    <div class="bg-blue-600 p-1.5 rounded-lg text-white"><i data-lucide="file-clock"
+                            class="w-4 h-4"></i></div>
                     <h3 class="text-sm font-black uppercase tracking-tight">Estimate History</h3>
                 </div>
-                <button onclick="closeModal('estimateHistoryModal')" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+                <button onclick="closeModal('estimateHistoryModal')" class="text-slate-400 hover:text-slate-600 p-1"><i
+                        data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
-                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest sticky top-0">
+                    <thead
+                        class="bg-slate-50 border-b border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest sticky top-0">
                         <tr>
                             <th class="px-6 py-4">Ref No</th>
                             <th class="px-6 py-4">Client</th>
@@ -304,36 +467,44 @@
                     </tbody>
                 </table>
             </div>
-            <div id="noHistoryMsg" class="hidden p-8 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">
+            <div id="noHistoryMsg"
+                class="hidden p-8 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">
                 No saved estimates found
             </div>
         </div>
     </div>
 
     <!-- Estimate Modal -->
-    <div id="estimateModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div id="estimateModal"
+        class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div class="modal-content bg-white rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[90vh]">
-            <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl no-print">
+            <div
+                class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl no-print">
                 <div class="flex items-center gap-2">
-                    <div class="bg-blue-600 p-1.5 rounded-lg text-white"><i data-lucide="file-text" class="w-4 h-4"></i></div>
+                    <div class="bg-blue-600 p-1.5 rounded-lg text-white"><i data-lucide="file-text" class="w-4 h-4"></i>
+                    </div>
                     <h3 class="text-sm font-black uppercase tracking-tight">Estimate Generator</h3>
                 </div>
                 <div class="flex gap-2 items-center">
-                    <button onclick="saveEstimate()" id="saveEstimateBtn" class="bg-green-600 text-white px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-green-700 flex items-center gap-1">
+                    <button onclick="saveEstimate()" id="saveEstimateBtn"
+                        class="bg-green-600 text-white px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-green-700 flex items-center gap-1">
                         <i data-lucide="save" class="w-3.5 h-3.5"></i> <span id="saveBtnText">Save</span>
                     </button>
-                    
-                    <button onclick="openEstimateSettings()" class="text-[10px] font-bold uppercase text-slate-500 hover:text-blue-600 flex items-center gap-1 border-r border-slate-200 pr-3 mr-1 ml-1">
+
+                    <button onclick="openEstimateSettings()"
+                        class="text-[10px] font-bold uppercase text-slate-500 hover:text-blue-600 flex items-center gap-1 border-r border-slate-200 pr-3 mr-1 ml-1">
                         <i data-lucide="settings" class="w-3.5 h-3.5"></i> Config
                     </button>
 
-                    <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 flex items-center gap-2">
+                    <button onclick="window.print()"
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 flex items-center gap-2">
                         <i data-lucide="printer" class="w-3.5 h-3.5"></i> Print
                     </button>
-                    <button onclick="closeModal('estimateModal')" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+                    <button onclick="closeModal('estimateModal')" class="text-slate-400 hover:text-slate-600 p-1"><i
+                            data-lucide="x" class="w-5 h-5"></i></button>
                 </div>
             </div>
-            
+
             <div id="estimatePrintArea" class="p-8 overflow-y-auto flex-1 estimate-container bg-white relative">
                 <!-- Hidden ID for edit mode -->
                 <input type="hidden" id="currentEstimateId">
@@ -343,18 +514,22 @@
                     <div class="flex gap-6 items-center">
                         <!-- Logo Placeholder -->
                         <div id="estHeaderLogo" class="hidden">
-                             <img id="estLogoImg" class="h-20 w-auto object-contain">
+                            <img id="estLogoImg" class="h-20 w-auto object-contain">
                         </div>
                         <!-- Company Info -->
                         <div>
-                            <h1 id="estHeaderTitle" class="text-2xl font-black uppercase text-slate-800 leading-tight">DLV Materials Tracker</h1>
-                            <p id="estHeaderInfo" class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mt-1 whitespace-pre-line"></p>
+                            <h1 id="estHeaderTitle" class="text-2xl font-black uppercase text-slate-800 leading-tight">
+                                DLV Materials Tracker</h1>
+                            <p id="estHeaderInfo"
+                                class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mt-1 whitespace-pre-line">
+                            </p>
                         </div>
                     </div>
-                    
+
                     <div class="text-right">
                         <h2 class="text-xl font-black uppercase text-blue-700 leading-tight mb-1">Estimate</h2>
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ref: <span id="refNumber"></span></p>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ref: <span
+                                id="refNumber"></span></p>
                         <p id="estimateDateDisplay" class="text-[10px] font-bold text-slate-400 uppercase mt-1"></p>
                     </div>
                 </div>
@@ -363,11 +538,13 @@
                 <div class="grid grid-cols-2 gap-8 mb-8 no-print">
                     <div class="space-y-2">
                         <label class="text-[9px] font-black text-slate-400 uppercase">Project Name / Reference</label>
-                        <input type="text" id="estProjectTitle" placeholder="E.G. RESIDENTIAL RENOVATION" class="w-full p-2.5 border border-slate-200 rounded-lg text-[11px] font-bold uppercase outline-none focus:border-blue-500">
+                        <input type="text" id="estProjectTitle" placeholder="E.G. RESIDENTIAL RENOVATION"
+                            class="w-full p-2.5 border border-slate-200 rounded-lg text-[11px] font-bold uppercase outline-none focus:border-blue-500">
                     </div>
                     <div class="space-y-2">
                         <label class="text-[9px] font-black text-slate-400 uppercase">Client Name</label>
-                        <input type="text" id="estClientName" placeholder="E.G. JUAN DELA CRUZ" class="w-full p-2.5 border border-slate-200 rounded-lg text-[11px] font-bold uppercase outline-none focus:border-blue-500">
+                        <input type="text" id="estClientName" placeholder="E.G. JUAN DELA CRUZ"
+                            class="w-full p-2.5 border border-slate-200 rounded-lg text-[11px] font-bold uppercase outline-none focus:border-blue-500">
                     </div>
                 </div>
 
@@ -386,7 +563,8 @@
 
                 <!-- Estimate Table -->
                 <table class="w-full text-left border-collapse mb-8 table-fixed">
-                    <thead class="bg-slate-50 border-y border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                    <thead
+                        class="bg-slate-50 border-y border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest">
                         <tr>
                             <!-- Explicit widths added in style tag for print stability -->
                             <th class="px-4 py-3 w-[45%]" style="width: 45%;">Description</th>
@@ -427,26 +605,30 @@
     </div>
 
     <!-- Analytics Modal -->
-    <div id="analyticsModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div id="analyticsModal"
+        class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div class="modal-content bg-white rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[80vh]">
             <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                 <div class="flex items-center gap-2">
-                    <div class="bg-indigo-600 p-1.5 rounded-lg text-white"><i data-lucide="trending-up" class="w-4 h-4"></i></div>
+                    <div class="bg-indigo-600 p-1.5 rounded-lg text-white"><i data-lucide="trending-up"
+                            class="w-4 h-4"></i></div>
                     <h3 class="text-sm font-black uppercase tracking-tight">Price History & Trends</h3>
                 </div>
-                <button onclick="closeModal('analyticsModal')" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+                <button onclick="closeModal('analyticsModal')" class="text-slate-400 hover:text-slate-600 p-1"><i
+                        data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <div class="p-6 bg-slate-50/50">
                 <h4 id="analyticsItemName" class="text-sm font-black uppercase text-slate-800 mb-1"></h4>
                 <p id="analyticsItemID" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4"></p>
-                
+
                 <div id="priceComparisonCard" class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm mb-6">
                     <div class="flex justify-between items-end">
                         <div>
                             <p class="text-[9px] font-black text-slate-400 uppercase mb-1">Current Price</p>
                             <p id="analyticsCurrentPrice" class="text-2xl font-black text-blue-700"></p>
                         </div>
-                        <div id="analyticsTrendBadge" class="px-2 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1"></div>
+                        <div id="analyticsTrendBadge"
+                            class="px-2 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1"></div>
                     </div>
                 </div>
 
@@ -464,82 +646,155 @@
     </div>
 
     <!-- Logs Modal -->
-    <div id="logsModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div id="logsModal"
+        class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div class="modal-content bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[80vh]">
             <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
                 <div class="flex items-center gap-2">
-                    <div class="bg-blue-600 p-1.5 rounded-lg text-white"><i data-lucide="history" class="w-4 h-4"></i></div>
+                    <div class="bg-blue-600 p-1.5 rounded-lg text-white"><i data-lucide="history" class="w-4 h-4"></i>
+                    </div>
                     <h3 class="text-sm font-black uppercase tracking-tight">Admin Activity Logs</h3>
                 </div>
-                <button onclick="closeModal('logsModal')" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+                <button onclick="closeModal('logsModal')" class="text-slate-400 hover:text-slate-600 p-1"><i
+                        data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <div id="logsList" class="p-4 log-scroll flex-1 space-y-3 bg-white"></div>
             <div class="p-4 bg-slate-50 border-t border-slate-100 text-center">
-                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Showing recent 50 activities • Scroll for more</p>
+                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Showing recent 50 activities •
+                    Scroll for more</p>
             </div>
         </div>
     </div>
 
-    <div id="loginModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div id="loginModal"
+        class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div id="loginContent" class="modal-content bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl">
             <h3 class="text-lg font-black uppercase mb-4 text-center">Admin access</h3>
-            <div id="loginError" class="hidden mb-4 p-3 bg-red-50 border border-red-100 rounded-lg flex items-center gap-2">
+            <div id="loginError"
+                class="hidden mb-4 p-3 bg-red-50 border border-red-100 rounded-lg flex items-center gap-2">
                 <i data-lucide="alert-circle" class="w-4 h-4 text-red-500"></i>
                 <p class="text-[10px] font-black uppercase text-red-600">Incorrect Password</p>
             </div>
             <form onsubmit="event.preventDefault(); submitLogin();">
-                <input type="password" id="loginPassword" placeholder="PASSWORD" class="w-full p-3 border border-slate-200 rounded-lg mb-4 text-xs outline-none focus:border-blue-500">
-                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold uppercase text-xs">Verify</button>
+                <input type="password" id="loginPassword" placeholder="PASSWORD"
+                    class="w-full p-3 border border-slate-200 rounded-lg mb-4 text-xs outline-none focus:border-blue-500">
+                <button type="submit"
+                    class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold uppercase text-xs">Verify</button>
             </form>
-            <button onclick="closeModal('loginModal')" class="w-full mt-2 text-[10px] font-black uppercase text-slate-400 py-2">Cancel</button>
+            <button onclick="closeModal('loginModal')"
+                class="w-full mt-2 text-[10px] font-black uppercase text-slate-400 py-2">Cancel</button>
         </div>
     </div>
 
-    <div id="confirmModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div id="confirmModal"
+        class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div class="modal-content bg-white p-6 rounded-xl w-full max-w-sm shadow-2xl text-center">
             <div id="confirmIcon" class="mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4"></div>
             <h3 id="confirmTitle" class="text-sm font-black uppercase mb-2"></h3>
             <p id="confirmText" class="text-xs text-slate-500 mb-6 font-medium"></p>
             <div class="flex gap-2">
-                <button id="confirmCancel" class="flex-1 py-3 text-[10px] font-black uppercase text-slate-400 hover:bg-slate-50 rounded-lg">Cancel</button>
-                <button id="confirmProceed" class="flex-1 py-3 text-[10px] font-black uppercase text-white rounded-lg"></button>
+                <button id="confirmCancel"
+                    class="flex-1 py-3 text-[10px] font-black uppercase text-slate-400 hover:bg-slate-50 rounded-lg">Cancel</button>
+                <button id="confirmProceed"
+                    class="flex-1 py-3 text-[10px] font-black uppercase text-white rounded-lg"></button>
             </div>
         </div>
     </div>
 
-    <div id="messageModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div id="messageModal"
+        class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div class="modal-content bg-white p-6 rounded-xl w-full max-w-sm">
             <h3 class="text-lg font-black uppercase mb-4">Edit Board</h3>
             <form onsubmit="event.preventDefault(); saveBoardMessage();" class="space-y-4">
-                <input type="text" id="inputBoardTitle" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs uppercase" placeholder="TITLE">
-                <textarea id="inputBoardContent" rows="5" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs uppercase" placeholder="MESSAGE (USE ENTER FOR NEW LINES)"></textarea>
-                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold uppercase text-xs">Update Board</button>
+                <input type="text" id="inputBoardTitle"
+                    class="w-full p-2.5 border border-slate-200 rounded-lg text-xs uppercase" placeholder="TITLE">
+                <textarea id="inputBoardContent" rows="5"
+                    class="w-full p-2.5 border border-slate-200 rounded-lg text-xs uppercase"
+                    placeholder="MESSAGE (USE ENTER FOR NEW LINES)"></textarea>
+                <button type="submit"
+                    class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold uppercase text-xs">Update
+                    Board</button>
             </form>
         </div>
     </div>
 
-    <div id="itemModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-        <div class="modal-content bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                <h3 id="modalTitle" class="text-sm font-black uppercase tracking-tight">Material Details</h3>
-                <button onclick="closeModal('itemModal')" class="text-slate-400 hover:text-slate-600 p-1"><i data-lucide="x" class="w-5 h-5"></i></button>
+    <div id="itemModal"
+        class="modal fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div
+            class="modal-content bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-600 p-2 rounded-xl text-white">
+                        <i data-lucide="package-plus" class="w-5 h-5"></i>
+                    </div>
+                    <h3 id="modalTitle" class="text-sm font-black uppercase tracking-tight text-slate-800">Material
+                        Details</h3>
+                </div>
+                <button onclick="closeModal('itemModal')"
+                    class="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-xl transition-all"><i
+                        data-lucide="x" class="w-5 h-5"></i></button>
             </div>
-            <div class="p-6">
-                <form id="itemForm" class="space-y-4">
+            <div class="p-8">
+                <form id="itemForm" class="space-y-6">
                     <input type="hidden" id="itemId">
-                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                        <p id="displayIdNo" class="text-xs font-mono font-bold text-slate-700">NEW</p>
+
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Internal
+                            Reference</label>
+                        <div
+                            class="bg-slate-100/80 px-4 py-3 rounded-2xl border border-slate-200/50 flex items-center justify-between">
+                            <p id="displayIdNo" class="text-xs font-mono font-bold text-slate-600">NEW</p>
+                            <i data-lucide="hash" class="w-4 h-4 text-slate-300"></i>
+                        </div>
                     </div>
-                    <input type="text" id="itemName" placeholder="ITEM NAME" class="w-full p-2.5 border border-slate-200 rounded-lg uppercase text-xs" required>
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="text" id="itemBrand" placeholder="BRAND" class="w-full p-2.5 border border-slate-200 rounded-lg uppercase text-xs">
-                        <input type="text" id="itemSupplier" placeholder="SUPPLIER" class="w-full p-2.5 border border-slate-200 rounded-lg uppercase text-xs">
+
+                    <div class="space-y-1">
+                        <label
+                            class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Description</label>
+                        <input type="text" id="itemName" placeholder="E.G. PORTLAND CEMENT"
+                            class="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-bold uppercase focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all"
+                            required>
                     </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="number" step="0.01" id="itemPrice" placeholder="PRICE" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs" required>
-                        <input type="text" id="itemUnit" placeholder="UNIT" class="w-full p-2.5 border border-slate-200 rounded-lg uppercase text-xs" required>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                            <label
+                                class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Brand</label>
+                            <input type="text" id="itemBrand" placeholder="E.G. HOLCIM"
+                                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-bold uppercase focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all">
+                        </div>
+                        <div class="space-y-1">
+                            <label
+                                class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Supplier</label>
+                            <input type="text" id="itemSupplier" placeholder="OPTIONAL"
+                                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-bold uppercase focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all">
+                        </div>
                     </div>
-                    <button type="submit" id="saveBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-black uppercase text-xs">Save Material</button>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Price
+                                (PHP)</label>
+                            <div class="relative">
+                                <span
+                                    class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₱</span>
+                                <input type="number" step="0.01" id="itemPrice" placeholder="0.00"
+                                    class="w-full pl-8 pr-4 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-bold focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                    required>
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <label
+                                class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Unit</label>
+                            <input type="text" id="itemUnit" placeholder="E.G. BAG"
+                                class="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-bold uppercase focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                required>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="saveBtn"
+                        class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-[0.98] transition-all mt-4">Save
+                        Material</button>
                 </form>
             </div>
         </div>
@@ -571,7 +826,7 @@
         let activeEstimateItems = []; // Items currently in the estimate modal (array of objects)
         let isAdmin = false;
         let isSelectionMode = false;
-        let sortConfig = { key: 'idNo', direction: 'asc' }; 
+        let sortConfig = { key: 'idNo', direction: 'asc' };
         let estimateQuantities = {};
         let estimateSettings = {
             companyName: 'DLV Materials Tracker',
@@ -594,15 +849,15 @@
             const modal = document.getElementById('confirmModal');
             const icon = document.getElementById('confirmIcon');
             const proceedBtn = document.getElementById('confirmProceed');
-            
+
             document.getElementById('confirmTitle').textContent = title;
             document.getElementById('confirmText').textContent = text;
             proceedBtn.textContent = proceedLabel;
-            
+
             icon.className = `mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4 ${type === 'danger' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`;
             icon.innerHTML = `<i data-lucide="${type === 'danger' ? 'alert-triangle' : 'info'}" class="w-6 h-6"></i>`;
             proceedBtn.className = `flex-1 py-3 text-[10px] font-black uppercase text-white rounded-lg ${type === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`;
-            
+
             modal.classList.add('active');
             lucide.createIcons();
 
@@ -610,7 +865,7 @@
                 modal.classList.remove('active');
                 document.getElementById('confirmProceed').onclick = null;
             };
-            
+
             document.getElementById('confirmCancel').onclick = cancel;
             proceedBtn.onclick = () => {
                 onProceed();
@@ -623,7 +878,7 @@
                 const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'logs'));
                 const snap = await getDocs(q);
                 logs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-                          .sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+                    .sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
                 renderLogs();
             } catch (err) { console.error("Fetch logs error:", err); }
         };
@@ -637,9 +892,9 @@
                 return;
             }
             container.innerHTML = recentLogs.map(log => {
-                const date = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : 'Just now';
+                const date = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now';
                 let colorClass = log.action === 'ADD' ? 'bg-green-100 text-green-700' : log.action === 'EDIT' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700';
-                
+
                 const isRange = log.idNo && log.idNo.toString().includes('-');
                 const displayId = isRange ? log.idNo : (log.idNo || '??');
 
@@ -664,13 +919,13 @@
         };
 
         // --- ESTIMATE SETTINGS LOGIC ---
-        
+
         window.openEstimateSettings = () => {
             // Populate inputs
             document.getElementById('settingCompanyName').value = estimateSettings.companyName || '';
             document.getElementById('settingCompanyInfo').value = estimateSettings.companyInfo || '';
             document.getElementById('settingFooterText').value = estimateSettings.footerText || '';
-            
+
             const preview = document.getElementById('settingsLogoPreview');
             if (estimateSettings.logoBase64) {
                 preview.innerHTML = `<img src="${estimateSettings.logoBase64}" class="w-full h-full object-contain">`;
@@ -684,7 +939,7 @@
         window.handleLogoSelect = (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            
+
             // Resize logic
             const reader = new FileReader();
             reader.onload = (readerEvent) => {
@@ -700,17 +955,17 @@
                     } else {
                         if (height > maxSize) { width *= maxSize / height; height = maxSize; }
                     }
-                    
+
                     canvas.width = width;
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
                     const resizedBase64 = canvas.toDataURL('image/png');
-                    
+
                     // Update preview
                     document.getElementById('settingsLogoPreview').innerHTML = `<img src="${resizedBase64}" class="w-full h-full object-contain">`;
                     // Store temporarily in input (or variable)
-                    estimateSettings.pendingLogo = resizedBase64; 
+                    estimateSettings.pendingLogo = resizedBase64;
                 };
                 img.src = readerEvent.target.result;
             };
@@ -729,7 +984,7 @@
             const companyName = document.getElementById('settingCompanyName').value.toUpperCase().trim();
             const companyInfo = document.getElementById('settingCompanyInfo').value.toUpperCase().trim();
             const footerText = document.getElementById('settingFooterText').value.toUpperCase().trim();
-            
+
             const newSettings = {
                 companyName: companyName || 'DLV MATERIALS TRACKER',
                 companyInfo: companyInfo,
@@ -741,14 +996,14 @@
             try {
                 // Save to Firestore
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'estimate'), newSettings);
-                
+
                 // Update local state
                 estimateSettings = { ...estimateSettings, ...newSettings };
                 delete estimateSettings.pendingLogo; // cleanup
-                
+
                 // Refresh Estimate Modal View
                 updateEstimateHeaderUI();
-                
+
                 closeModal('estimateSettingsModal');
             } catch (err) {
                 console.error("Error saving settings:", err);
@@ -769,10 +1024,10 @@
             document.getElementById('estHeaderTitle').textContent = estimateSettings.companyName;
             document.getElementById('estHeaderInfo').textContent = estimateSettings.companyInfo;
             document.getElementById('estFooterText').textContent = estimateSettings.footerText;
-            
+
             const logoDiv = document.getElementById('estHeaderLogo');
             const logoImg = document.getElementById('estLogoImg');
-            
+
             if (estimateSettings.logoBase64) {
                 logoImg.src = estimateSettings.logoBase64;
                 logoDiv.classList.remove('hidden');
@@ -788,14 +1043,14 @@
                 const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'estimates'));
                 const snap = await getDocs(q);
                 estimates = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-                             .sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                    .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
             } catch (err) { console.error("Fetch estimates error:", err); }
         };
 
         window.openEstimateHistory = () => {
             const tbody = document.getElementById('estimateHistoryBody');
             const noMsg = document.getElementById('noHistoryMsg');
-            
+
             if (estimates.length === 0) {
                 tbody.innerHTML = '';
                 noMsg.classList.remove('hidden');
@@ -811,7 +1066,7 @@
                             <td class="px-6 py-3 uppercase text-slate-600 font-bold whitespace-nowrap">${est.clientName || 'N/A'}</td>
                             <td class="px-6 py-3 uppercase text-slate-600 font-bold whitespace-nowrap">${est.projectName || 'N/A'}</td>
                             <td class="px-6 py-3 text-slate-400 font-bold uppercase whitespace-nowrap">${date}</td>
-                            <td class="px-6 py-3 text-right font-black text-slate-800">₱${Number(est.totalAmount || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                            <td class="px-6 py-3 text-right font-black text-slate-800">₱${Number(est.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                             <td class="px-6 py-3 text-right">
                                 <button onclick="deleteEstimate('${est.id}')" class="text-slate-300 hover:text-red-500 transition">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -864,15 +1119,15 @@
                     estimateData.createdAt = serverTimestamp();
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'estimates'), estimateData);
                 }
-                
+
                 await fetchEstimates(); // Refresh local list
                 alert("Estimate saved successfully!");
                 // Optionally close modal or switch button state?
                 // For now, reload the saved ID so future clicks update it
                 if (!currentId) {
-                     // If we just created, we need to find it or just close. 
-                     // Simplest: close modal to avoid confusion
-                     closeModal('estimateModal');
+                    // If we just created, we need to find it or just close. 
+                    // Simplest: close modal to avoid confusion
+                    closeModal('estimateModal');
                 }
             } catch (err) {
                 console.error("Save estimate error:", err);
@@ -889,37 +1144,37 @@
 
             // Set State
             document.getElementById('currentEstimateId').value = estimate.id;
-            
+
             // Populate Fields
             const dateStr = estimate.createdAt ? new Date(estimate.createdAt.seconds * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A';
             document.getElementById('estimateDateDisplay').textContent = dateStr;
             document.getElementById('refNumber').textContent = estimate.refNumber;
             document.getElementById('estClientName').value = estimate.clientName || '';
             document.getElementById('estProjectTitle').value = estimate.projectName || '';
-            
+
             // Trigger print preview update
             document.getElementById('printClientName').textContent = estimate.clientName || 'N/A';
             document.getElementById('printProjectTitle').textContent = estimate.projectName || 'N/A';
 
             // Load Items Snapshot
-            activeEstimateItems = estimate.items.map(i => ({...i})); // Deep copy
-            
+            activeEstimateItems = estimate.items.map(i => ({ ...i })); // Deep copy
+
             updateEstimateHeaderUI();
             renderActiveEstimateItems();
-            
+
             // Update button text
             document.getElementById('saveBtnText').textContent = "Update";
-            
+
             document.body.classList.add('printing-estimate');
             openModal('estimateModal');
         };
 
         window.deleteEstimate = (id) => {
             showConfirm(
-                'Delete Estimate', 
-                'Are you sure you want to delete this saved estimate record?', 
-                'danger', 
-                'Delete', 
+                'Delete Estimate',
+                'Are you sure you want to delete this saved estimate record?',
+                'danger',
+                'Delete',
                 async () => {
                     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'estimates', id));
                     await fetchEstimates();
@@ -930,7 +1185,7 @@
 
         window.openNewEstimate = () => {
             if (selectedIds.size === 0) return;
-            
+
             // Clear current ID (New Mode)
             document.getElementById('currentEstimateId').value = "";
             document.getElementById('saveBtnText').textContent = "Save";
@@ -947,7 +1202,7 @@
             const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
             document.getElementById('estimateDateDisplay').textContent = dateStr;
             document.getElementById('refNumber').textContent = Date.now().toString().slice(-6);
-            
+
             // Clear inputs
             document.getElementById('estClientName').value = "";
             document.getElementById('estProjectTitle').value = "";
@@ -991,16 +1246,16 @@
                             <span class="print-only font-bold">${item.qty} ${item.unit}</span>
                         </td>
                         <td class="px-4 py-3 text-right font-bold text-slate-600 whitespace-nowrap">
-                            ₱${Number(item.price).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                            ₱${Number(item.price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
                         <td class="px-4 py-3 text-right font-black text-blue-700 whitespace-nowrap">
-                            ₱${Number(total).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                            ₱${Number(total).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
                     </tr>
                 `;
             }).join('');
 
-            document.getElementById('estimateGrandTotal').textContent = `₱${Number(grandTotal).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            document.getElementById('estimateGrandTotal').textContent = `₱${Number(grandTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
             lucide.createIcons();
         };
 
@@ -1009,7 +1264,7 @@
             if (item) {
                 item.qty = Math.max(0, item.qty + change);
                 if (item.qty === 0) {
-                    if(confirm("Remove this item from the estimate?")) {
+                    if (confirm("Remove this item from the estimate?")) {
                         activeEstimateItems = activeEstimateItems.filter(i => i.id !== id);
                     } else {
                         item.qty = 1;
@@ -1020,8 +1275,8 @@
         };
 
         window.updateActiveEstimateQtyInput = (id, val) => {
-             const item = activeEstimateItems.find(i => i.id === id);
-             if (item) {
+            const item = activeEstimateItems.find(i => i.id === id);
+            if (item) {
                 const newQty = parseInt(val);
                 if (newQty > 0) {
                     item.qty = newQty;
@@ -1029,16 +1284,16 @@
                     item.qty = 1; // Prevent 0/negative via input
                 }
                 renderActiveEstimateItems();
-             }
+            }
         };
 
         // --- OLD LOGIC UPDATES ---
-        
+
         window.updateEstimateQty = (id, val) => {
             // Updated to support selection mode cache still (for main table context)
             estimateQuantities[id] = Math.max(1, parseInt(val) || 1);
         };
-        
+
         // Real-time link for print preview
         document.getElementById('estProjectTitle').addEventListener('input', (e) => {
             document.getElementById('printProjectTitle').textContent = e.target.value || 'N/A';
@@ -1057,15 +1312,15 @@
 
             document.getElementById('analyticsItemName').textContent = item.name;
             document.getElementById('analyticsItemID').textContent = `Catalog ID: #${item.idNo}`;
-            document.getElementById('analyticsCurrentPrice').textContent = `₱${Number(item.price).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-            
+            document.getElementById('analyticsCurrentPrice').textContent = `₱${Number(item.price).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
             const timeline = document.getElementById('analyticsTimeline');
             const trendBadge = document.getElementById('analyticsTrendBadge');
-            
+
             if (itemHistory.length > 1) {
                 const latestPrice = item.price;
                 const prevPrice = itemHistory[1].price || 0;
-                
+
                 if (latestPrice > prevPrice && prevPrice !== 0) {
                     trendBadge.className = "px-2 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1 bg-red-100 text-red-600";
                     trendBadge.innerHTML = `<i data-lucide="trending-up" class="w-3 h-3"></i> Increased`;
@@ -1082,10 +1337,10 @@
             }
 
             timeline.innerHTML = itemHistory.map((log, idx) => {
-                const date = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString([], {month:'short', day:'numeric', year:'numeric'}) : 'Initial Record';
-                const time = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
-                const price = log.price ? `₱${Number(log.price).toLocaleString(undefined, {minimumFractionDigits: 2})}` : 'N/A';
-                
+                const date = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'Initial Record';
+                const time = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                const price = log.price ? `₱${Number(log.price).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : 'N/A';
+
                 return `
                     <div class="relative">
                         <div class="absolute -left-[27px] top-1 w-3 h-3 rounded-full border-2 border-white shadow-sm ${idx === 0 ? 'bg-blue-600' : 'bg-slate-300'}"></div>
@@ -1110,7 +1365,7 @@
             closeModal('logsModal');
             document.getElementById('searchInput').value = idNo;
             render();
-            
+
             setTimeout(() => {
                 const rows = document.querySelectorAll('#materialsTableBody tr');
                 for (let row of rows) {
@@ -1185,7 +1440,7 @@
 
         window.closeModal = (id) => {
             document.getElementById(id).classList.remove('active');
-            if(id === 'estimateModal') {
+            if (id === 'estimateModal') {
                 document.body.classList.remove('printing-estimate');
             }
         };
@@ -1221,7 +1476,7 @@
             document.getElementById('selectionInfo').classList.toggle('hidden', !isSelectionMode);
             document.getElementById('selectHeader').classList.toggle('hidden', !isSelectionMode);
             document.getElementById('adminBulkActions').classList.toggle('hidden', !(isSelectionMode && isAdmin));
-            
+
             if (!isSelectionMode) {
                 selectedIds.clear();
                 estimateQuantities = {};
@@ -1250,10 +1505,10 @@
         window.bulkDelete = () => {
             if (selectedIds.size === 0) return;
             showConfirm(
-                'Bulk Delete', 
-                `Are you sure you want to delete ${selectedIds.size} selected items? This action cannot be undone.`, 
-                'danger', 
-                'Delete All', 
+                'Bulk Delete',
+                `Are you sure you want to delete ${selectedIds.size} selected items? This action cannot be undone.`,
+                'danger',
+                'Delete All',
                 async () => {
                     const batch = writeBatch(db);
                     const deletedNames = [];
@@ -1281,7 +1536,7 @@
         const render = () => {
             const rawTerm = document.getElementById('searchInput').value.toLowerCase();
             const term = rawTerm.trim();
-            
+
             let range = null;
             if (term.includes('-')) {
                 const parts = term.split('-').map(p => parseInt(p));
@@ -1293,10 +1548,10 @@
             const filtered = items.filter(i => {
                 const idInt = parseInt(i.idNo);
                 if (range) return idInt >= range.start && idInt <= range.end;
-                return (i.name || '').toLowerCase().includes(term) || 
-                       (i.idNo || '').toString().includes(term) ||
-                       (i.brand || '').toLowerCase().includes(term) ||
-                       (i.supplier || '').toLowerCase().includes(term);
+                return (i.name || '').toLowerCase().includes(term) ||
+                    (i.idNo || '').toString().includes(term) ||
+                    (i.brand || '').toLowerCase().includes(term) ||
+                    (i.supplier || '').toLowerCase().includes(term);
             }).sort((a, b) => {
                 let v1 = a[sortConfig.key], v2 = b[sortConfig.key];
                 if (sortConfig.key === 'idNo' || sortConfig.key === 'price') { v1 = parseFloat(v1) || 0; v2 = parseFloat(v2) || 0; }
@@ -1309,12 +1564,12 @@
             filtered.forEach(item => {
                 const nameKey = item.name.trim().toUpperCase();
                 nameCounts[nameKey] = (nameCounts[nameKey] || 0) + 1;
-                
+
                 // Track lowest price
                 if (!bestPrices[nameKey] || item.price < bestPrices[nameKey]) {
                     bestPrices[nameKey] = item.price;
                 }
-                
+
                 // Track highest price
                 if (!highestPrices[nameKey] || item.price > highestPrices[nameKey]) {
                     highestPrices[nameKey] = item.price;
@@ -1324,7 +1579,7 @@
             document.getElementById('materialsTableBody').innerHTML = filtered.map(i => {
                 const brandInfo = [i.brand, i.supplier].filter(Boolean).join(' / ') || '-';
                 const nameKey = i.name.trim().toUpperCase();
-                
+
                 const isBestPrice = nameCounts[nameKey] > 1 && i.price === bestPrices[nameKey];
                 // Only mark as highest if it's the most expensive AND not equal to the best price (avoids tagging if all prices are same)
                 const isHighestPrice = nameCounts[nameKey] > 1 && i.price === highestPrices[nameKey] && i.price !== bestPrices[nameKey];
@@ -1347,7 +1602,7 @@
                             <div class="flex gap-2 mt-1">
                                 ${isBestPrice ? '<span class="text-[8px] font-black bg-green-500 text-white px-1.5 py-0.5 rounded tracking-widest">BEST PRICE</span>' : ''}
                                 ${isHighestPrice ? '<span class="text-[8px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded tracking-widest">HIGHEST PRICE</span>' : ''}
-                                ${historyCount > 1 ? '<button onclick="event.stopPropagation(); openAnalytics(\''+i.id+'\')" class="no-print text-[8px] font-black bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded tracking-widest flex items-center gap-1 hover:bg-indigo-600 hover:text-white transition-colors">HISTORY <i data-lucide="line-chart" class="w-2 h-2"></i></button>' : ''}
+                                ${historyCount > 1 ? '<button onclick="event.stopPropagation(); openAnalytics(\'' + i.id + '\')" class="no-print text-[8px] font-black bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded tracking-widest flex items-center gap-1 hover:bg-indigo-600 hover:text-white transition-colors">HISTORY <i data-lucide="line-chart" class="w-2 h-2"></i></button>' : ''}
                             </div>
                         </div>
                     </td>
@@ -1355,7 +1610,7 @@
                     <td class="px-4 py-4 text-right">
                         <div class="price-grid" onclick="event.stopPropagation(); openAnalytics('${i.id}')">
                             <span class="text-[8px] font-black text-slate-300">₱</span>
-                            <span class="price-number font-black ${isBestPrice ? 'text-green-600' : (isHighestPrice ? 'text-orange-600' : 'text-blue-700')}">${Number(i.price).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                            <span class="price-number font-black ${isBestPrice ? 'text-green-600' : (isHighestPrice ? 'text-orange-600' : 'text-blue-700')}">${Number(i.price).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                             <span class="text-[7px] text-slate-300 uppercase">/${i.unit}</span>
                         </div>
                     </td>
@@ -1411,10 +1666,10 @@
         window.deleteItem = async (id) => {
             const item = items.find(i => i.id === id);
             showConfirm(
-                'Delete Item', 
-                `Delete "${item.name}" permanently?`, 
-                'danger', 
-                'Delete', 
+                'Delete Item',
+                `Delete "${item.name}" permanently?`,
+                'danger',
+                'Delete',
                 async () => {
                     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id));
                     createLog('DELETE', item.name, id, item.idNo);
@@ -1434,7 +1689,7 @@
                     const wsname = wb.SheetNames[0];
                     const ws = wb.Sheets[wsname];
                     const rawData = XLSX.utils.sheet_to_json(ws);
-                    
+
                     const validItems = rawData.filter(row => {
                         const name = (row.Material || row.name || row.ITEM || row.MaterialName || '').toString().trim();
                         const price = parseFloat(row.Price || row.price || row.PRICE || row.Cost || 0);
@@ -1443,10 +1698,10 @@
 
                     if (validItems.length > 0) {
                         showConfirm(
-                            'Excel Upload', 
-                            `Found ${validItems.length} valid items. Proceed to upload?`, 
-                            'info', 
-                            'Upload All', 
+                            'Excel Upload',
+                            `Found ${validItems.length} valid items. Proceed to upload?`,
+                            'info',
+                            'Upload All',
                             async () => {
                                 document.getElementById('loadingState').classList.remove('hidden');
                                 let nextIdNo = items.length > 0 ? Math.max(...items.map(i => parseInt(i.idNo) || 0)) + 1 : 1;
@@ -1482,4 +1737,5 @@
         lucide.createIcons();
     </script>
 </body>
+
 </html>
