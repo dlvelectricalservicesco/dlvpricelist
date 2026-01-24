@@ -36,19 +36,21 @@
         }
 
         .modal {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: opacity 0.25s ease, visibility 0.25s ease;
             opacity: 0;
             pointer-events: none;
+            visibility: hidden;
         }
 
         .modal.active {
             opacity: 1;
             pointer-events: auto;
+            visibility: visible;
         }
 
         .modal-content {
-            transform: translateY(20px) scale(0.95);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateY(15px) scale(0.98);
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .modal.active .modal-content {
@@ -115,17 +117,54 @@
             background: #94a3b8;
         }
 
+        /* Timeline & History */
+        .timeline-scroll {
+            max-height: 180px;
+            overflow-y: auto;
+            padding-right: 12px;
+            scroll-behavior: smooth;
+        }
+
+        .timeline-scroll::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .timeline-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .timeline-scroll::-webkit-scrollbar-thumb {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+
+        .timeline-scroll::-webkit-scrollbar-thumb:hover {
+            background: #cbd5e1;
+        }
+
+        .history-line {
+            position: relative;
+        }
+
+        .history-line::before {
+            content: '';
+            position: absolute;
+            left: 7px;
+            top: 4px;
+            bottom: 4px;
+            width: 2px;
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+
         @keyframes shine {
             0% {
-                left: -100%;
+                transform: translateX(-100%) skewX(-25deg);
             }
 
-            20% {
-                left: 100%;
-            }
-
+            20%,
             100% {
-                left: 100%;
+                transform: translateX(200%) skewX(-25deg);
             }
         }
 
@@ -133,22 +172,22 @@
             content: '';
             position: absolute;
             top: 0;
-            left: -100%;
+            left: 0;
             width: 50%;
             height: 100%;
-            background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25), transparent);
-            transform: skewX(-25deg);
-            animation: shine 8s infinite ease-in-out;
+            background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.2), transparent);
+            animation: shine 12s infinite ease-in-out;
         }
 
         /* Buttons & Interactions */
         .btn-hover {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            will-change: transform;
         }
 
         .btn-hover:hover {
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
         }
 
         .btn-hover:active {
@@ -207,6 +246,17 @@
             @page {
                 margin: 1cm;
                 size: auto;
+            }
+
+            /* Selection Mode Printing: Hide non-selected rows */
+            body.selection-active-print #materialsTable tbody tr:not(.selected-row) {
+                display: none !important;
+            }
+
+            /* Hide the selection checkbox column during print */
+            body.selection-active-print #materialsTable th#selectHeader,
+            body.selection-active-print #materialsTable td:first-child {
+                display: none !important;
             }
         }
 
@@ -304,41 +354,46 @@
             <div class="absolute -left-10 -bottom-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl"></div>
         </div>
 
-        <div id="selectionInfo"
-            class="hidden no-print mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <p class="text-[10px] text-blue-700 font-bold uppercase"><span id="selectedCount">0</span> items
-                    selected</p>
-                <div id="estimateAction" class="flex gap-2 border-l border-blue-200 pl-3">
-                    <button onclick="openNewEstimate()"
-                        class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 flex items-center gap-2">
-                        <i data-lucide="file-plus" class="w-3.5 h-3.5"></i> Create Estimate
-                    </button>
+        <!-- Sticky Search & Selection Toolbar -->
+        <div class="sticky top-16 z-30 bg-slate-50/95 backdrop-blur-md -mx-4 px-4 py-4 mb-4 border-b border-transparent transition-all no-print"
+            id="stickyToolbar">
+            <div id="selectionInfo"
+                class="hidden mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <p class="text-[10px] text-blue-700 font-bold uppercase"><span id="selectedCount">0</span> items
+                        selected</p>
+                    <div id="estimateAction" class="flex gap-2 border-l border-blue-200 pl-3">
+                        <button onclick="openNewEstimate()"
+                            class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-blue-700 flex items-center gap-2">
+                            <i data-lucide="file-plus" class="w-3.5 h-3.5"></i> Create Estimate
+                        </button>
+                    </div>
+                    <div id="adminBulkActions" class="hidden flex gap-2 border-l border-blue-200 pl-3">
+                        <button onclick="bulkDelete()"
+                            class="text-[10px] text-red-600 font-black uppercase hover:underline">Delete
+                            Selected</button>
+                    </div>
                 </div>
-                <div id="adminBulkActions" class="hidden flex gap-2 border-l border-blue-200 pl-3">
-                    <button onclick="bulkDelete()"
-                        class="text-[10px] text-red-600 font-black uppercase hover:underline">Delete Selected</button>
-                </div>
+                <button onclick="clearSelection()" class="text-[10px] text-blue-600 font-black uppercase">Clear
+                    Selection</button>
             </div>
-            <button onclick="clearSelection()" class="text-[10px] text-blue-600 font-black uppercase">Clear
-                Selection</button>
-        </div>
 
-        <div class="mb-6 no-print flex gap-3">
-            <div class="relative flex-1 group">
-                <i data-lucide="search"
-                    class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
-                <input type="text" id="searchInput" placeholder="Search materials, brands, or ID numbers..."
-                    class="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl outline-none text-sm font-medium shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all">
-                <div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    <span
-                        class="px-2 py-1 bg-slate-100 text-[9px] font-black rounded border border-slate-200 text-slate-400">ESC</span>
+            <div class="flex gap-3">
+                <div class="relative flex-1 group">
+                    <i data-lucide="search"
+                        class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
+                    <input type="text" id="searchInput" placeholder="Search materials, brands, or ID numbers..."
+                        class="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl outline-none text-sm font-medium shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all">
+                    <div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        <span
+                            class="px-2 py-1 bg-slate-100 text-[9px] font-black rounded border border-slate-200 text-slate-400">ESC</span>
+                    </div>
                 </div>
+                <button onclick="handlePrint()"
+                    class="px-5 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm group">
+                    <i data-lucide="printer" class="w-5 h-5 text-slate-500 group-hover:text-slate-800"></i>
+                </button>
             </div>
-            <button onclick="handlePrint()"
-                class="px-5 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm group">
-                <i data-lucide="printer" class="w-5 h-5 text-slate-500 group-hover:text-slate-800"></i>
-            </button>
         </div>
 
         <div id="loadingState" class="text-center py-20">
@@ -1497,9 +1552,19 @@
 
         window.toggleRowSelection = (id) => {
             if (!isSelectionMode) return;
-            selectedIds.has(id) ? selectedIds.delete(id) : selectedIds.add(id);
+            const isSelected = selectedIds.has(id);
+            isSelected ? selectedIds.delete(id) : selectedIds.add(id);
             document.getElementById('selectedCount').textContent = selectedIds.size;
-            render();
+
+            // Surgical DOM update for performance
+            const row = document.querySelector(`tr[data-id="${id}"]`);
+            if (row) {
+                row.classList.toggle('selected-row', !isSelected);
+                const checkbox = row.querySelector('.selection-checkbox');
+                if (checkbox) checkbox.classList.toggle('bg-blue-600', !isSelected);
+                if (checkbox) checkbox.classList.toggle('border-blue-600', !isSelected);
+                if (checkbox) checkbox.classList.toggle('border-slate-300', isSelected);
+            }
         };
 
         window.bulkDelete = () => {
@@ -1526,6 +1591,20 @@
                 }
             );
         };
+
+        const debounce = (func, wait) => {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        };
+
+        const debouncedRender = debounce(() => render(), 250);
 
         window.handleSort = (key) => {
             sortConfig.direction = (sortConfig.key === key && sortConfig.direction === 'asc') ? 'desc' : 'asc';
@@ -1581,19 +1660,18 @@
                 const nameKey = i.name.trim().toUpperCase();
 
                 const isBestPrice = nameCounts[nameKey] > 1 && i.price === bestPrices[nameKey];
-                // Only mark as highest if it's the most expensive AND not equal to the best price (avoids tagging if all prices are same)
                 const isHighestPrice = nameCounts[nameKey] > 1 && i.price === highestPrices[nameKey] && i.price !== bestPrices[nameKey];
                 const hasCompetition = nameCounts[nameKey] > 1;
 
                 const historyCount = logs.filter(l => l.itemId === i.id).length;
 
                 return `
-                <tr onclick="toggleRowSelection('${i.id}')" 
+                <tr data-id="${i.id}" onclick="toggleRowSelection('${i.id}')" 
                     class="${selectedIds.has(i.id) ? 'selected-row' : 'hover:bg-slate-50'} 
                            ${hasCompetition ? 'border-l-4 border-l-blue-100' : ''} 
-                           transition-all cursor-pointer">
+                           transition-colors duration-150 cursor-pointer">
                     <td class="${isSelectionMode ? '' : 'hidden'} px-3 py-4 no-print">
-                        <div class="w-4 h-4 border rounded ${selectedIds.has(i.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}"></div>
+                        <div class="selection-checkbox w-4 h-4 border rounded ${selectedIds.has(i.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}"></div>
                     </td>
                     <td class="px-4 py-4 text-blue-600 font-mono font-black">#${i.idNo}</td>
                     <td class="px-4 py-4">
@@ -1623,7 +1701,11 @@
                 </tr>
             `}).join('');
             document.getElementById('tableContainer').classList.remove('hidden');
-            lucide.createIcons();
+            lucide.createIcons({
+                attrs: { class: 'lucide' },
+                nameAttr: 'data-lucide',
+                root: document.getElementById('materialsTableBody')
+            });
         };
 
         window.editItem = (id) => {
@@ -1729,11 +1811,24 @@
             reader.readAsBinaryString(file);
         };
 
-        document.getElementById('searchInput').oninput = render;
+        document.getElementById('searchInput').oninput = debouncedRender;
         window.handlePrint = () => window.print();
         window.handleLogout = () => location.reload();
         window.refreshData = refreshData;
         window.openAnalytics = openAnalytics;
+
+        // Sticky toolbar shadow on scroll
+        window.addEventListener('scroll', () => {
+            const toolbar = document.getElementById('stickyToolbar');
+            if (window.scrollY > 200) {
+                toolbar.classList.add('border-slate-200', 'shadow-md');
+                toolbar.classList.remove('border-transparent');
+            } else {
+                toolbar.classList.remove('border-slate-200', 'shadow-md');
+                toolbar.classList.add('border-transparent');
+            }
+        });
+
         lucide.createIcons();
     </script>
 </body>
