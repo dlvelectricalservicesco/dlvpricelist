@@ -855,6 +855,28 @@
         </div>
     </div>
 
+    <!-- Notice Popup Modal -->
+    <div id="noticePopupModal"
+        class="modal fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 print:hidden">
+        <div class="modal-content bg-white p-8 rounded-3xl w-full max-w-sm text-center shadow-2xl border-4 border-blue-600 relative overflow-hidden">
+            <!-- Decorative Icon Background -->
+            <div class="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-blue-50 to-white -z-10"></div>
+            <div class="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-blue-200">
+                <i data-lucide="bell-ring" class="w-10 h-10 text-white animate-pulse"></i>
+            </div>
+            
+            <h3 class="text-xl font-black uppercase text-slate-800 mb-3 tracking-tight">Important Reminder</h3>
+            <p class="text-sm font-medium text-slate-500 mb-8 leading-relaxed">
+                Always read the <span class="text-blue-600 font-bold">Notice Board</span> to keep updated with the latest price changes and announcements.
+            </p>
+            
+            <button onclick="closeModal('noticePopupModal')"
+                class="w-full bg-blue-600 text-white py-3.5 rounded-xl font-black uppercase text-xs shadow-lg shadow-blue-200 hover:bg-blue-700 hover:shadow-xl hover:-translate-y-0.5 transition-all">
+                I Understand
+            </button>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
         import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
@@ -1830,6 +1852,13 @@
         });
 
         lucide.createIcons();
+
+        // Show Notice Popup on Load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                openModal('noticePopupModal');
+            }, 1000);
+        });
     </script>
 </body>
 
