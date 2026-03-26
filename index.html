@@ -318,8 +318,8 @@
                         class="p-2 text-slate-400 hover:text-blue-600 transition" title="Upload Excel">
                         <i data-lucide="file-up" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="exportToExcel()"
-                        class="p-2 text-slate-400 hover:text-blue-600 transition" title="Export Excel">
+                    <button onclick="exportToExcel()" class="p-2 text-slate-400 hover:text-blue-600 transition"
+                        title="Export Excel">
                         <i data-lucide="file-down" class="w-4 h-4"></i>
                     </button>
                     <button onclick="openModal('itemModal', 'add')"
@@ -399,7 +399,8 @@
                     <div class="relative w-28 no-print group">
                         <input type="number" id="globalMarkupInput" placeholder="0" value="0"
                             class="w-full pl-10 pr-6 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-black text-indigo-600 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all shadow-sm">
-                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-indigo-400">%</span>
+                        <span
+                            class="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-indigo-400">%</span>
                     </div>
                 </div>
                 <button onclick="handlePrint()"
@@ -425,9 +426,8 @@
                     <thead class="bg-slate-50/50 sticky top-0 z-10">
                         <tr class="header-row">
                             <th id="selectHeader" class="hidden px-4 py-4 w-12 no-print border-b border-slate-200">
-                                <div onclick="event.stopPropagation(); toggleSelectAll()" 
-                                     id="selectAllCheckbox"
-                                     class="w-4 h-4 border border-slate-300 rounded cursor-pointer flex items-center justify-center transition-all hover:border-blue-500">
+                                <div onclick="event.stopPropagation(); toggleSelectAll()" id="selectAllCheckbox"
+                                    class="w-4 h-4 border border-slate-300 rounded cursor-pointer flex items-center justify-center transition-all hover:border-blue-500">
                                     <div id="selectAllIndicator" class="hidden w-2 h-2 bg-blue-600 rounded-[2px]"></div>
                                 </div>
                             </th>
@@ -446,10 +446,11 @@
                                 Brand / Supplier</th>
                             <th class="px-4 py-4 text-right cursor-pointer border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest"
                                 onclick="handleSort('price')">
-                                <div class="flex items-center justify-end gap-2">Price <i
-                                        data-lucide="chevrons-up-down" class="w-3 h-3"></i></div>
+                                <div class="flex items-center justify-end gap-2">Price <i data-lucide="chevrons-up-down"
+                                        class="w-3 h-3"></i></div>
                             </th>
-                            <th class="px-4 py-4 text-right border-b border-slate-200 text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+                            <th
+                                class="px-4 py-4 text-right border-b border-slate-200 text-[10px] font-black text-indigo-400 uppercase tracking-widest">
                                 <div class="flex items-center justify-end gap-2">% Price</div>
                             </th>
                             <th
@@ -461,14 +462,15 @@
                 </table>
             </div>
             <!-- Pagination Controls -->
-            <div id="pagination" class="no-print px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+            <div id="pagination"
+                class="no-print px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
                 <p id="paginationInfo" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest"></p>
                 <div class="flex gap-2">
-                    <button id="prevPage" onclick="changePage(-1)" 
+                    <button id="prevPage" onclick="changePage(-1)"
                         class="p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm">
                         <i data-lucide="chevron-left" class="w-4 h-4 text-slate-600"></i>
                     </button>
-                    <button id="nextPage" onclick="changePage(1)" 
+                    <button id="nextPage" onclick="changePage(1)"
                         class="p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm">
                         <i data-lucide="chevron-right" class="w-4 h-4 text-slate-600"></i>
                     </button>
@@ -751,8 +753,11 @@
                     </div>
                     <h3 class="text-sm font-black uppercase tracking-tight">Admin Activity Logs</h3>
                 </div>
-                <button onclick="closeModal('logsModal')" class="text-slate-400 hover:text-slate-600 p-1"><i
-                        data-lucide="x" class="w-5 h-5"></i></button>
+                <div class="flex items-center gap-2">
+                    <button onclick="clearAllPriceHistory()" class="text-[9px] font-black uppercase text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded-lg border border-red-100 transition-all mr-2">Clear All History</button>
+                    <button onclick="closeModal('logsModal')" class="text-slate-400 hover:text-slate-600 p-1"><i
+                            data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
             </div>
             <div id="logsList" class="p-4 log-scroll flex-1 space-y-3 bg-white"></div>
             <div class="p-4 bg-slate-50 border-t border-slate-100 text-center">
@@ -915,18 +920,21 @@
     <!-- Notice Popup Modal -->
     <div id="noticePopupModal"
         class="modal fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 print:hidden">
-        <div class="modal-content bg-white p-8 rounded-3xl w-full max-w-sm text-center shadow-2xl border-4 border-blue-600 relative overflow-hidden">
+        <div
+            class="modal-content bg-white p-8 rounded-3xl w-full max-w-sm text-center shadow-2xl border-4 border-blue-600 relative overflow-hidden">
             <!-- Decorative Icon Background -->
             <div class="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-blue-50 to-white -z-10"></div>
-            <div class="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-blue-200">
+            <div
+                class="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-blue-200">
                 <i data-lucide="bell-ring" class="w-10 h-10 text-white animate-pulse"></i>
             </div>
-            
+
             <h3 class="text-xl font-black uppercase text-slate-800 mb-3 tracking-tight">Important Reminder</h3>
             <p class="text-sm font-medium text-slate-500 mb-8 leading-relaxed">
-                Always read the <span class="text-blue-600 font-bold">Notice Board</span> to keep updated with the latest price changes and announcements.
+                Always read the <span class="text-blue-600 font-bold">Notice Board</span> to keep updated with the
+                latest price changes and announcements.
             </p>
-            
+
             <button onclick="closeModal('noticePopupModal')"
                 class="w-full bg-blue-600 text-white py-3.5 rounded-xl font-black uppercase text-xs shadow-lg shadow-blue-200 hover:bg-blue-700 hover:shadow-xl hover:-translate-y-0.5 transition-all">
                 I Understand
@@ -971,7 +979,7 @@
         const categories = ["ALL", "GENERAL", "STEEL", "ELECTRICAL", "PLUMBING", "PAINT", "CEMENT", "TOOLS", "OTHERS"];
         let activeCategory = "ALL";
         let globalMarkup = 0;
-        
+
         // Performance / Pagination State
         let currentPage = 1;
         const itemsPerPage = 80;
@@ -1076,6 +1084,34 @@
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'logs', id));
                 await fetchLogs();
             } catch (err) { console.error("Delete log error:", err); }
+        };
+
+        window.clearAllPriceHistory = async () => {
+            if (!confirm("ARE YOU SURE YOU WANT TO PERMANENTLY DELETE ALL ACTIVITY LOGS AND PRICE HISTORY? THIS ACTION CANNOT BE UNDONE.")) return;
+
+            document.getElementById('loadingState').classList.remove('hidden');
+            try {
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'logs'));
+                const snap = await getDocs(q);
+                
+                const batchSize = 400; // Firestore batch limit is 500
+                const docs = snap.docs;
+                
+                for (let i = 0; i < docs.length; i += batchSize) {
+                    const batch = writeBatch(db);
+                    const chunk = docs.slice(i, i + batchSize);
+                    chunk.forEach(d => batch.delete(d.ref));
+                    await batch.commit();
+                }
+
+                await fetchLogs();
+                alert("All price history and activity logs have been cleared successfully.");
+            } catch (err) {
+                console.error("Clear logs error:", err);
+                alert("Failed to clear logs correctly.");
+            } finally {
+                document.getElementById('loadingState').classList.add('hidden');
+            }
         };
 
         const renderCategoryBar = () => {
@@ -1786,7 +1822,7 @@
             if (!isSelectionMode) return;
             const indicator = document.getElementById('selectAllIndicator');
             const checkbox = document.getElementById('selectAllCheckbox');
-            
+
             if (filteredItems.length === 0) {
                 indicator.classList.add('hidden');
                 checkbox.className = "w-4 h-4 border border-slate-300 rounded cursor-pointer flex items-center justify-center transition-all hover:border-blue-500";
@@ -1821,7 +1857,7 @@
             const filteredItems = getFilteredItems();
             const totalItems = filteredItems.length;
             const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-            
+
             // Adjust current page if filters changed
             if (currentPage > totalPages) currentPage = totalPages;
             if (currentPage < 1) currentPage = 1;
@@ -1899,7 +1935,7 @@
                         </div>
                     </td>
                     <td class="px-4 py-4 text-right font-mono text-[11px] font-black text-indigo-600 bg-indigo-50/30">
-                        ₱${(Number(i.price) * (1 + globalMarkup/100)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        ₱${(Number(i.price) * (1 + globalMarkup / 100)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
                     <td class="${isAdmin ? '' : 'hidden'} px-4 py-4 text-right no-print">
                         <div class="flex justify-end gap-2">
@@ -2023,7 +2059,11 @@
                                             updatedAt: serverTimestamp()
                                         };
                                         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', existing.id), updateData);
-                                        await createLog('EDIT', name, existing.id, existing.idNo, materialPrice);
+                                        
+                                        // Only create history log if the price has actually changed
+                                        if (Number(existing.price) !== Number(materialPrice)) {
+                                            await createLog('EDIT', name, existing.id, existing.idNo, materialPrice);
+                                        }
                                     } else {
                                         const material = {
                                             idNo: nextIdNo++,
@@ -2064,7 +2104,7 @@
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, "Materials");
                 XLSX.writeFile(wb, `DLV_Materials_Inventory_${activeCategory}.xlsx`);
-                
+
                 createLog('EXPORT', 'MATERIALS INVENTORY', '', 'XLSX');
             } catch (err) {
                 console.error("Export error:", err);
