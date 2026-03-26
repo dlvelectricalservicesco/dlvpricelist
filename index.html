@@ -1384,7 +1384,7 @@
             if (!item) return;
 
             const itemHistory = logs
-                .filter(l => l.itemId === itemId && (l.action === 'EDIT' || l.action === 'ADD'))
+                .filter(l => l.idNo.toString() === item.idNo.toString() && (l.action === 'EDIT' || l.action === 'ADD'))
                 .sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
 
             document.getElementById('analyticsItemName').textContent = item.name;
@@ -1685,7 +1685,7 @@
                 const isHighestPrice = nameCounts[nameKey] > 1 && i.price === highestPrices[nameKey] && i.price !== bestPrices[nameKey];
                 const hasCompetition = nameCounts[nameKey] > 1;
 
-                const historyCount = logs.filter(l => l.itemId === i.id).length;
+                const historyCount = logs.filter(l => l.idNo.toString() === i.idNo.toString()).length;
 
                 return `
                 <tr data-id="${i.id}" onclick="toggleRowSelection('${i.id}')" 
@@ -1757,11 +1757,11 @@
             if (id) {
                 const old = items.find(i => i.id === id);
                 await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', id), data);
-                createLog('EDIT', data.name, id, old.idNo, price);
+                await createLog('EDIT', data.name, id, old.idNo, price);
             } else {
                 data.idNo = items.length > 0 ? Math.max(...items.map(i => parseInt(i.idNo) || 0)) + 1 : 1;
                 const newDoc = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), data);
-                createLog('ADD', data.name, newDoc.id, data.idNo, price);
+                await createLog('ADD', data.name, newDoc.id, data.idNo, price);
             }
             refreshData();
             closeModal('itemModal');
@@ -1811,17 +1811,36 @@
                                 let nextIdNo = items.length > 0 ? Math.max(...items.map(i => parseInt(i.idNo) || 0)) + 1 : 1;
                                 for (const row of validItems) {
                                     const materialPrice = parseFloat(row.Price || row.price || row.PRICE || row.Cost || 0);
-                                    const material = {
-                                        idNo: nextIdNo++,
-                                        name: (row.Material || row.name || row.ITEM || row.MaterialName || '').toString().trim().toUpperCase(),
-                                        price: materialPrice,
-                                        unit: (row.Unit || row.unit || row.UNIT || 'PC').toString().trim().toUpperCase(),
-                                        brand: (row.Brand || row.brand || row.BRAND || '').toString().trim().toUpperCase(),
-                                        supplier: (row.Supplier || row.supplier || row.SUPPLIER || '').toString().trim().toUpperCase(),
-                                        updatedAt: serverTimestamp()
-                                    };
-                                    const newDoc = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), material);
-                                    createLog('ADD', material.name, newDoc.id, material.idNo, materialPrice);
+                                    const name = (row.Material || row.name || row.ITEM || row.MaterialName || '').toString().trim().toUpperCase();
+                                    const brand = (row.Brand || row.brand || row.BRAND || '').toString().trim().toUpperCase();
+                                    const unit = (row.Unit || row.unit || row.UNIT || 'PC').toString().trim().toUpperCase();
+                                    const supplier = (row.Supplier || row.supplier || row.SUPPLIER || '').toString().trim().toUpperCase();
+
+                                    // Check for existing item by Name and Brand
+                                    const existing = items.find(i => i.name === name && (i.brand || '') === brand);
+
+                                    if (existing) {
+                                        const updateData = {
+                                            price: materialPrice,
+                                            unit: unit,
+                                            supplier: supplier || existing.supplier || '',
+                                            updatedAt: serverTimestamp()
+                                        };
+                                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', existing.id), updateData);
+                                        await createLog('EDIT', name, existing.id, existing.idNo, materialPrice);
+                                    } else {
+                                        const material = {
+                                            idNo: nextIdNo++,
+                                            name: name,
+                                            price: materialPrice,
+                                            unit: unit,
+                                            brand: brand,
+                                            supplier: supplier,
+                                            updatedAt: serverTimestamp()
+                                        };
+                                        const newDoc = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), material);
+                                        await createLog('ADD', material.name, newDoc.id, material.idNo, materialPrice);
+                                    }
                                 }
                                 refreshData();
                             }
