@@ -990,14 +990,27 @@
             highestPrices: {}
         };
 
-        const createLog = async (action, itemName, itemId, idNo, price = null) => {
+        const createLog = async (action, itemName, itemId, idNo, price = null, batch = null) => {
             try {
                 const logData = {
                     action, itemName, itemId: itemId || '', idNo: idNo || '', timestamp: serverTimestamp()
                 };
                 if (price !== null) logData.price = price;
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), logData);
+                if (batch) {
+                    batch.set(doc(collection(db, 'artifacts', appId, 'public', 'data', 'logs')), logData);
+                } else {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), logData);
+                }
             } catch (err) { console.error("Log error:", err); }
+        };
+
+        const getRowValue = (row, aliases) => {
+            const keys = Object.keys(row);
+            for (const alias of aliases) {
+                const foundKey = keys.find(k => k.trim().toUpperCase() === alias.toUpperCase());
+                if (foundKey !== undefined) return row[foundKey];
+            }
+            return null;
         };
 
         const showConfirm = (title, text, type, proceedLabel, onProceed) => {
@@ -2014,6 +2027,7 @@
             );
         };
 
+
         window.handleExcelUpload = (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -2026,63 +2040,79 @@
                     const ws = wb.Sheets[wsname];
                     const rawData = XLSX.utils.sheet_to_json(ws);
 
-                    const validItems = rawData.filter(row => {
-                        const name = (row.Material || row.name || row.ITEM || row.MaterialName || '').toString().trim();
-                        const price = parseFloat(row.Price || row.price || row.PRICE || row.Cost || 0);
-                        return name && !isNaN(price);
-                    });
+                    const validItems = rawData.map(row => {
+                        const name = (getRowValue(row, ['Material', 'name', 'ITEM', 'MaterialName', 'Description']) || '').toString().trim().toUpperCase();
+                        const price = parseFloat(getRowValue(row, ['Price', 'price', 'PRICE', 'Cost', 'Unit Price']) || 0);
+                        const brand = (getRowValue(row, ['Brand', 'brand', 'BRAND', 'Make', 'Mfr']) || '').toString().trim().toUpperCase();
+                        const unit = (getRowValue(row, ['Unit', 'unit', 'UNIT', 'UOM']) || 'PC').toString().trim().toUpperCase();
+                        const supplier = (getRowValue(row, ['Supplier', 'supplier', 'SUPPLIER', 'Vendor']) || '').toString().trim().toUpperCase();
+                        const category = (getRowValue(row, ['Category', 'category', 'CATEGORY', 'Group']) || 'GENERAL').toString().trim().toUpperCase();
+
+                        return { name, price, brand, unit, supplier, category, isValid: name && !isNaN(price) };
+                    }).filter(i => i.isValid);
 
                     if (validItems.length > 0) {
                         showConfirm(
                             'Excel Upload',
-                            `Found ${validItems.length} valid items. Proceed to upload?`,
+                            `Found ${validItems.length} valid items (including updates). Proceed to upload?`,
                             'info',
                             'Upload All',
                             async () => {
                                 document.getElementById('loadingState').classList.remove('hidden');
                                 let nextIdNo = items.length > 0 ? Math.max(...items.map(i => parseInt(i.idNo) || 0)) + 1 : 1;
-                                for (const row of validItems) {
-                                    const materialPrice = parseFloat(row.Price || row.price || row.PRICE || row.Cost || 0);
-                                    const name = (row.Material || row.name || row.ITEM || row.MaterialName || '').toString().trim().toUpperCase();
-                                    const brand = (row.Brand || row.brand || row.BRAND || '').toString().trim().toUpperCase();
-                                    const unit = (row.Unit || row.unit || row.UNIT || 'PC').toString().trim().toUpperCase();
-                                    const supplier = (row.Supplier || row.supplier || row.SUPPLIER || '').toString().trim().toUpperCase();
+                                
+                                const batchSize = 400; // Limit is 500
+                                for (let i = 0; i < validItems.length; i += batchSize) {
+                                    const batch = writeBatch(db);
+                                    const chunk = validItems.slice(i, i + batchSize);
 
-                                    // Check for existing item by Name and Brand
-                                    const existing = items.find(i => i.name === name && (i.brand || '') === brand);
+                                    for (const row of chunk) {
+                                        const { name, price, brand, unit, supplier, category } = row;
+                                        const existing = items.find(item => item.name === name && (item.brand || '') === brand);
 
-                                    if (existing) {
-                                        const updateData = {
-                                            price: materialPrice,
-                                            unit: unit,
-                                            supplier: supplier || existing.supplier || '',
-                                            updatedAt: serverTimestamp()
-                                        };
-                                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'materials', existing.id), updateData);
-                                        
-                                        // Only create history log if the price has actually changed
-                                        if (Number(existing.price) !== Number(materialPrice)) {
-                                            await createLog('EDIT', name, existing.id, existing.idNo, materialPrice);
+                                        if (existing) {
+                                            const updateData = {
+                                                price: price,
+                                                unit: unit,
+                                                brand: brand,
+                                                supplier: supplier || existing.supplier || '',
+                                                category: category || existing.category || 'GENERAL',
+                                                updatedAt: serverTimestamp()
+                                            };
+                                            batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'materials', existing.id), updateData);
+                                            
+                                            if (Number(existing.price) !== Number(price)) {
+                                                await createLog('EDIT', name, existing.id, existing.idNo, price, batch);
+                                            }
+                                        } else {
+                                            const materialId = doc(collection(db, 'artifacts', appId, 'public', 'data', 'materials')).id;
+                                            const material = {
+                                                idNo: nextIdNo++,
+                                                name: name,
+                                                price: price,
+                                                unit: unit,
+                                                brand: brand,
+                                                supplier: supplier,
+                                                category: category,
+                                                updatedAt: serverTimestamp()
+                                            };
+                                            batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'materials', materialId), material);
+                                            await createLog('ADD', name, materialId, material.idNo, price, batch);
                                         }
-                                    } else {
-                                        const material = {
-                                            idNo: nextIdNo++,
-                                            name: name,
-                                            price: materialPrice,
-                                            unit: unit,
-                                            brand: brand,
-                                            supplier: supplier,
-                                            updatedAt: serverTimestamp()
-                                        };
-                                        const newDoc = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'materials'), material);
-                                        await createLog('ADD', material.name, newDoc.id, material.idNo, materialPrice);
                                     }
+                                    await batch.commit();
                                 }
                                 refreshData();
+                                alert("Bulk upload completed successfully.");
                             }
                         );
+                    } else {
+                        alert("No valid items found in the Excel file. Please check your column headers (Material, Price, Brand, Supplier, etc.)");
                     }
-                } catch (err) { console.error(err); }
+                } catch (err) { 
+                    console.error("Excel processing error:", err); 
+                    alert("An error occurred while processing the Excel file.");
+                }
                 e.target.value = '';
             };
             reader.readAsBinaryString(file);
