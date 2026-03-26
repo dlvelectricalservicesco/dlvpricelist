@@ -460,6 +460,20 @@
                     <tbody id="materialsTableBody" class="divide-y divide-slate-100 text-[11px] sm:text-xs"></tbody>
                 </table>
             </div>
+            <!-- Pagination Controls -->
+            <div id="pagination" class="no-print px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+                <p id="paginationInfo" class="text-[10px] font-bold text-slate-500 uppercase tracking-widest"></p>
+                <div class="flex gap-2">
+                    <button id="prevPage" onclick="changePage(-1)" 
+                        class="p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm">
+                        <i data-lucide="chevron-left" class="w-4 h-4 text-slate-600"></i>
+                    </button>
+                    <button id="nextPage" onclick="changePage(1)" 
+                        class="p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-sm">
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-600"></i>
+                    </button>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -957,6 +971,16 @@
         const categories = ["ALL", "GENERAL", "STEEL", "ELECTRICAL", "PLUMBING", "PAINT", "CEMENT", "TOOLS", "OTHERS"];
         let activeCategory = "ALL";
         let globalMarkup = 0;
+        
+        // Performance / Pagination State
+        let currentPage = 1;
+        const itemsPerPage = 80;
+        let memoizedData = {
+            itemsHash: null,
+            nameCounts: {},
+            bestPrices: {},
+            highestPrices: {}
+        };
 
         const createLog = async (action, itemName, itemId, idNo, price = null) => {
             try {
@@ -1795,33 +1819,50 @@
 
         const render = () => {
             const filteredItems = getFilteredItems();
+            const totalItems = filteredItems.length;
+            const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+            
+            // Adjust current page if filters changed
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+
             const filtered = filteredItems.sort((a, b) => {
                 let v1 = a[sortConfig.key], v2 = b[sortConfig.key];
                 if (sortConfig.key === 'idNo' || sortConfig.key === 'price') { v1 = parseFloat(v1) || 0; v2 = parseFloat(v2) || 0; }
                 return sortConfig.direction === 'asc' ? (v1 > v2 ? 1 : -1) : (v1 < v2 ? 1 : -1);
             });
 
-            const bestPrices = {};
-            const highestPrices = {};
-            const nameCounts = {};
-            filtered.forEach(item => {
-                const nameKey = item.name.trim().toUpperCase();
-                nameCounts[nameKey] = (nameCounts[nameKey] || 0) + 1;
+            // Pagination Slice
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const paginated = filtered.slice(startIndex, startIndex + itemsPerPage);
 
-                // Track lowest price
-                if (!bestPrices[nameKey] || item.price < bestPrices[nameKey]) {
-                    bestPrices[nameKey] = item.price;
-                }
+            // Memoized Grouping Calculations
+            const itemsHash = items.map(i => `${i.id}-${i.price}`).join('|');
+            if (memoizedData.itemsHash !== itemsHash) {
+                memoizedData.itemsHash = itemsHash;
+                memoizedData.nameCounts = {};
+                memoizedData.bestPrices = {};
+                memoizedData.highestPrices = {};
 
-                // Track highest price
-                if (!highestPrices[nameKey] || item.price > highestPrices[nameKey]) {
-                    highestPrices[nameKey] = item.price;
-                }
-            });
+                items.forEach(item => {
+                    const nameKey = (item.name || '').trim().toUpperCase();
+                    if (!nameKey) return;
+                    memoizedData.nameCounts[nameKey] = (memoizedData.nameCounts[nameKey] || 0) + 1;
 
-            document.getElementById('materialsTableBody').innerHTML = filtered.map(i => {
+                    if (!memoizedData.bestPrices[nameKey] || item.price < memoizedData.bestPrices[nameKey]) {
+                        memoizedData.bestPrices[nameKey] = item.price;
+                    }
+                    if (!memoizedData.highestPrices[nameKey] || item.price > memoizedData.highestPrices[nameKey]) {
+                        memoizedData.highestPrices[nameKey] = item.price;
+                    }
+                });
+            }
+
+            const { nameCounts, bestPrices, highestPrices } = memoizedData;
+
+            document.getElementById('materialsTableBody').innerHTML = paginated.map(i => {
                 const brandInfo = [i.brand, i.supplier].filter(Boolean).join(' / ') || '-';
-                const nameKey = i.name.trim().toUpperCase();
+                const nameKey = (i.name || '').trim().toUpperCase();
 
                 const isBestPrice = nameCounts[nameKey] > 1 && i.price === bestPrices[nameKey];
                 const isHighestPrice = nameCounts[nameKey] > 1 && i.price === highestPrices[nameKey] && i.price !== bestPrices[nameKey];
@@ -1870,6 +1911,12 @@
             `}).join('');
             document.getElementById('tableContainer').classList.remove('hidden');
             updateSelectAllState(filteredItems);
+
+            // Update Pagination UI
+            document.getElementById('paginationInfo').textContent = `Page ${currentPage} of ${totalPages} (${totalItems} items)`;
+            document.getElementById('prevPage').disabled = currentPage === 1;
+            document.getElementById('nextPage').disabled = currentPage === totalPages || totalItems === 0;
+
             lucide.createIcons({
                 attrs: { class: 'lucide' },
                 nameAttr: 'data-lucide',
@@ -2025,11 +2072,25 @@
             }
         };
 
-        document.getElementById('searchInput').oninput = debouncedRender;
-        document.getElementById('globalMarkupInput').oninput = (e) => {
-            globalMarkup = parseFloat(e.target.value) || 0;
+        document.getElementById('searchInput').oninput = () => {
+            currentPage = 1;
+            debouncedRender();
+        };
+
+        const debouncedMarkupUpdate = debounce((val) => {
+            globalMarkup = parseFloat(val) || 0;
             render();
             if (activeEstimateItems.length > 0) renderEstimate();
+        }, 500);
+
+        document.getElementById('globalMarkupInput').oninput = (e) => {
+            debouncedMarkupUpdate(e.target.value);
+        };
+
+        window.changePage = (dir) => {
+            currentPage += dir;
+            render();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         };
         window.handlePrint = () => window.print();
         window.handleLogout = () => location.reload();
