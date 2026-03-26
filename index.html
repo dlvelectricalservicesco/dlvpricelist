@@ -2068,17 +2068,32 @@
 
                                     for (const row of chunk) {
                                         const { name, price, brand, unit, supplier, category } = row;
-                                        const existing = items.find(item => item.name === name && (item.brand || '') === brand);
+                                        
+                                        // SMART MERGE LOGIC:
+                                        // 1. Try exact match (Name + Brand)
+                                        let existing = items.find(item => item.name === name && (item.brand || '') === brand);
+                                        
+                                        // 2. Fallback: Match by Name if system record has NO brand (only if Excel row HAS a brand)
+                                        if (!existing && brand !== "") {
+                                            existing = items.find(item => item.name === name && (item.brand || '') === "");
+                                        }
 
                                         if (existing) {
                                             const updateData = {
                                                 price: price,
                                                 unit: unit,
-                                                brand: brand,
+                                                brand: brand, // Updates the brand if it was missing
                                                 supplier: supplier || existing.supplier || '',
                                                 category: category || existing.category || 'GENERAL',
                                                 updatedAt: serverTimestamp()
                                             };
+                                            // Update local cache so subsequent rows in same upload can match exactly
+                                            existing.brand = brand;
+                                            existing.price = price;
+                                            existing.unit = unit;
+                                            existing.supplier = updateData.supplier;
+                                            existing.category = updateData.category;
+
                                             batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'materials', existing.id), updateData);
                                             
                                             if (Number(existing.price) !== Number(price)) {
