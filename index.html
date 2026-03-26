@@ -754,6 +754,7 @@
                     <h3 class="text-sm font-black uppercase tracking-tight">Admin Activity Logs</h3>
                 </div>
                 <div class="flex items-center gap-2">
+                    <button onclick="pruneOrphanedLogs()" class="text-[9px] font-black uppercase text-amber-600 hover:text-amber-700 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100 transition-all">Prune Ghost Logs</button>
                     <button onclick="clearAllPriceHistory()" class="text-[9px] font-black uppercase text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded-lg border border-red-100 transition-all mr-2">Clear All History</button>
                     <button onclick="closeModal('logsModal')" class="text-slate-400 hover:text-slate-600 p-1"><i
                             data-lucide="x" class="w-5 h-5"></i></button>
@@ -1122,6 +1123,43 @@
             } catch (err) {
                 console.error("Clear logs error:", err);
                 alert("Failed to clear logs correctly.");
+            } finally {
+                document.getElementById('loadingState').classList.add('hidden');
+            }
+        };
+
+        window.pruneOrphanedLogs = async () => {
+            if (!confirm("This will permanently delete activity logs for items that no longer exist in the system. Proceed?")) return;
+
+            document.getElementById('loadingState').classList.remove('hidden');
+            try {
+                const logsQ = query(collection(db, 'artifacts', appId, 'public', 'data', 'logs'));
+                const logsSnap = await getDocs(logsQ);
+                const currentItemIds = new Set(items.map(i => i.id));
+                
+                const orphanedLogs = logsSnap.docs.filter(d => {
+                    const l = d.data();
+                    return l.itemId && !currentItemIds.has(l.itemId);
+                });
+
+                if (orphanedLogs.length === 0) {
+                    alert("No ghost logs found.");
+                    return;
+                }
+
+                const batchSize = 400;
+                for (let i = 0; i < orphanedLogs.length; i += batchSize) {
+                    const batch = writeBatch(db);
+                    const chunk = orphanedLogs.slice(i, i + batchSize);
+                    chunk.forEach(d => batch.delete(d.ref));
+                    await batch.commit();
+                }
+
+                await fetchLogs();
+                alert(`Cleaned up ${orphanedLogs.length} ghost/orphaned logs.`);
+            } catch (err) {
+                console.error("Prune logs error:", err);
+                alert("Failed to prune logs.");
             } finally {
                 document.getElementById('loadingState').classList.add('hidden');
             }
@@ -1537,7 +1575,7 @@
             if (!item) return;
 
             const itemHistory = logs
-                .filter(l => l.idNo.toString() === item.idNo.toString() && (l.action === 'EDIT' || l.action === 'ADD'))
+                .filter(l => l.itemId === item.id && (l.action === 'EDIT' || l.action === 'ADD'))
                 .sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
 
             document.getElementById('analyticsItemName').textContent = item.name;
@@ -2102,6 +2140,7 @@
                                         } else {
                                             const materialId = doc(collection(db, 'artifacts', appId, 'public', 'data', 'materials')).id;
                                             const material = {
+                                                id: materialId,
                                                 idNo: nextIdNo++,
                                                 name: name,
                                                 price: price,
@@ -2111,6 +2150,9 @@
                                                 category: category,
                                                 updatedAt: serverTimestamp()
                                             };
+                                            // Update local cache so next row in same Excel can find it
+                                            items.push(material);
+
                                             batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'materials', materialId), material);
                                             await createLog('ADD', name, materialId, material.idNo, price, batch);
                                         }
