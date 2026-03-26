@@ -142,6 +142,11 @@
             background: #cbd5e1;
         }
 
+        .log-scroll {
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
         .history-line {
             position: relative;
         }
@@ -313,6 +318,10 @@
                         class="p-2 text-slate-400 hover:text-blue-600 transition" title="Upload Excel">
                         <i data-lucide="file-up" class="w-4 h-4"></i>
                     </button>
+                    <button onclick="exportToExcel()"
+                        class="p-2 text-slate-400 hover:text-blue-600 transition" title="Export Excel">
+                        <i data-lucide="file-down" class="w-4 h-4"></i>
+                    </button>
                     <button onclick="openModal('itemModal', 'add')"
                         class="btn-hover bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-md shadow-blue-100">Add
                         Item</button>
@@ -393,6 +402,11 @@
                     class="px-5 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm group">
                     <i data-lucide="printer" class="w-5 h-5 text-slate-500 group-hover:text-slate-800"></i>
                 </button>
+            </div>
+
+            <!-- Category Filter Bar -->
+            <div id="categoryBar" class="mt-4 flex gap-2 overflow-x-auto pb-2 no-print custom-scrollbar">
+                <!-- Populated by JS -->
             </div>
         </div>
 
@@ -826,6 +840,22 @@
                         </div>
                     </div>
 
+                    <div class="space-y-1">
+                        <label
+                            class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Category</label>
+                        <select id="itemCategory"
+                            class="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-bold uppercase focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all">
+                            <option value="GENERAL">GENERAL</option>
+                            <option value="STEEL">STEEL</option>
+                            <option value="ELECTRICAL">ELECTRICAL</option>
+                            <option value="PLUMBING">PLUMBING</option>
+                            <option value="PAINT">PAINT</option>
+                            <option value="CEMENT">CEMENT</option>
+                            <option value="TOOLS">TOOLS</option>
+                            <option value="OTHERS">OTHERS</option>
+                        </select>
+                    </div>
+
                     <div class="grid grid-cols-2 gap-4">
                         <div class="space-y-1">
                             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Price
@@ -911,6 +941,8 @@
             footerText: '',
             logoBase64: null
         };
+        const categories = ["ALL", "GENERAL", "STEEL", "ELECTRICAL", "PLUMBING", "PAINT", "CEMENT", "TOOLS", "OTHERS"];
+        let activeCategory = "ALL";
 
         const createLog = async (action, itemName, itemId, idNo, price = null) => {
             try {
@@ -976,23 +1008,54 @@
                 const displayId = isRange ? log.idNo : (log.idNo || '??');
 
                 return `
-                    <div ${log.action !== 'DELETE' ? `onclick="navigateToItem('${log.idNo}', '${log.itemName.replace(/'/g, "\\'")}')"` : ''} 
-                         class="p-3 bg-white border border-slate-100 rounded-xl flex items-center justify-between group ${log.action !== 'DELETE' ? 'cursor-pointer hover:border-blue-200 hover:shadow-md' : 'opacity-80'} transition-all">
-                        <div class="flex items-center gap-3">
+                    <div class="p-3 bg-white border border-slate-100 rounded-xl flex items-center justify-between group transition-all">
+                        <div ${log.action !== 'DELETE' ? `onclick="navigateToItem('${log.idNo}', '${log.itemName.replace(/'/g, "\\'")}')"` : ''} 
+                             class="flex items-center gap-3 ${log.action !== 'DELETE' ? 'cursor-pointer hover:underline' : 'opacity-80'} flex-1">
                             <span class="text-[8px] font-black px-2 py-0.5 rounded ${colorClass}">${log.action}</span>
                             <div>
                                 <p class="text-[10px] font-black uppercase text-slate-800 leading-tight">${log.itemName}</p>
                                 <p class="text-[9px] font-bold text-slate-400 mt-0.5 uppercase">ID: #${displayId}</p>
                             </div>
                         </div>
-                        <div class="text-right flex items-center gap-2">
+                        <div class="text-right flex items-center gap-4">
                             <p class="text-[8px] font-bold text-slate-400 uppercase">${date}</p>
-                            ${log.action !== 'DELETE' ? `<i data-lucide="chevron-right" class="w-3 h-3 text-slate-300 group-hover:text-blue-500 transition-colors"></i>` : ''}
+                            <div class="flex items-center gap-2">
+                                <button onclick="deleteLog('${log.id}')" class="p-1.5 text-slate-300 hover:text-red-500 transition-colors" title="Delete Log">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                                ${log.action !== 'DELETE' ? `<i data-lucide="chevron-right" class="w-3 h-3 text-slate-300 group-hover:text-blue-500 transition-colors"></i>` : ''}
+                            </div>
                         </div>
                     </div>
                 `;
             }).join('');
             lucide.createIcons();
+        };
+
+        window.deleteLog = async (id) => {
+            if (!confirm("Delete this log entry?")) return;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'logs', id));
+                await fetchLogs();
+            } catch (err) { console.error("Delete log error:", err); }
+        };
+
+        const renderCategoryBar = () => {
+            const container = document.getElementById('categoryBar');
+            if (!container) return;
+            container.innerHTML = categories.map(cat => `
+                <button onclick="setCategory('${cat}')" 
+                    class="px-4 py-2 rounded-xl text-[10px] font-black uppercase whitespace-nowrap transition-all border
+                    ${activeCategory === cat ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-100' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300'}">
+                    ${cat}
+                </button>
+            `).join('');
+        };
+
+        window.setCategory = (cat) => {
+            activeCategory = cat;
+            renderCategoryBar();
+            render();
         };
 
         // --- ESTIMATE SETTINGS LOGIC ---
@@ -1490,6 +1553,7 @@
                 const snap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'materials'));
                 items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 await fetchLogs();
+                renderCategoryBar();
                 render();
             } catch (err) { console.error(err); }
             finally { document.getElementById('loadingState').classList.add('hidden'); }
@@ -1502,6 +1566,7 @@
         window.openModal = (id, mode = 'add') => {
             const modal = document.getElementById(id);
             modal.classList.add('active');
+            document.body.style.overflow = 'hidden'; // Prevent background scroll
             if (id === 'loginModal') {
                 document.getElementById('loginError').classList.add('hidden');
                 document.getElementById('loginPassword').value = '';
@@ -1519,6 +1584,11 @@
             document.getElementById(id).classList.remove('active');
             if (id === 'estimateModal') {
                 document.body.classList.remove('printing-estimate');
+            }
+            // Check if any other modal is still active
+            const activeModals = document.querySelectorAll('.modal.active');
+            if (activeModals.length === 0) {
+                document.body.style.overflow = ''; // Re-enable scroll
             }
         };
 
@@ -1648,6 +1718,9 @@
 
             const filtered = items.filter(i => {
                 const idInt = parseInt(i.idNo);
+                const matchesCategory = activeCategory === "ALL" || (i.category || "GENERAL") === activeCategory;
+                if (!matchesCategory) return false;
+
                 if (range) return idInt >= range.start && idInt <= range.end;
                 return (i.name || '').toLowerCase().includes(term) ||
                     (i.idNo || '').toString().includes(term) ||
@@ -1699,7 +1772,8 @@
                     <td class="px-4 py-4">
                         <div class="flex flex-col">
                             <span class="font-bold uppercase">${i.name}</span>
-                            <div class="flex gap-2 mt-1">
+                            <div class="flex gap-2 mt-1 items-center">
+                                <span class="text-[7px] font-black bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded tracking-widest border border-slate-200">${i.category || 'GENERAL'}</span>
                                 ${isBestPrice ? '<span class="text-[8px] font-black bg-green-500 text-white px-1.5 py-0.5 rounded tracking-widest">BEST PRICE</span>' : ''}
                                 ${isHighestPrice ? '<span class="text-[8px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded tracking-widest">HIGHEST PRICE</span>' : ''}
                                 ${historyCount > 1 ? '<button onclick="event.stopPropagation(); openAnalytics(\'' + i.id + '\')" class="no-print text-[8px] font-black bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded tracking-widest flex items-center gap-1 hover:bg-indigo-600 hover:text-white transition-colors">HISTORY <i data-lucide="line-chart" class="w-2 h-2"></i></button>' : ''}
@@ -1738,6 +1812,7 @@
             document.getElementById('itemSupplier').value = item.supplier || '';
             document.getElementById('itemPrice').value = item.price;
             document.getElementById('itemUnit').value = item.unit;
+            document.getElementById('itemCategory').value = item.category || "GENERAL";
             document.getElementById('displayIdNo').textContent = "ID #" + item.idNo;
             openModal('itemModal', 'edit');
         };
@@ -1752,6 +1827,7 @@
                 supplier: document.getElementById('itemSupplier').value.toUpperCase(),
                 price: price,
                 unit: document.getElementById('itemUnit').value.toUpperCase(),
+                category: document.getElementById('itemCategory').value.toUpperCase(),
                 updatedAt: serverTimestamp()
             };
             if (id) {
@@ -1850,6 +1926,30 @@
                 e.target.value = '';
             };
             reader.readAsBinaryString(file);
+        };
+
+        window.exportToExcel = () => {
+            try {
+                const exportData = items.map(i => ({
+                    'ID No': i.idNo,
+                    'Material': i.name,
+                    'Brand': i.brand || '',
+                    'Supplier': i.supplier || '',
+                    'Price': i.price,
+                    'Unit': i.unit,
+                    'Category': i.category || 'GENERAL'
+                }));
+
+                const ws = XLSX.utils.json_to_sheet(exportData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Materials");
+                XLSX.writeFile(wb, `DLV_Materials_Inventory_${activeCategory}.xlsx`);
+                
+                createLog('EXPORT', 'MATERIALS INVENTORY', '', 'XLSX');
+            } catch (err) {
+                console.error("Export error:", err);
+                alert("Failed to export data.");
+            }
         };
 
         document.getElementById('searchInput').oninput = debouncedRender;
