@@ -388,14 +388,18 @@
             </div>
 
             <div class="flex gap-3">
-                <div class="relative flex-1 group">
-                    <i data-lucide="search"
-                        class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
-                    <input type="text" id="searchInput" placeholder="Search materials, brands, or ID numbers..."
-                        class="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl outline-none text-sm font-medium shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all">
-                    <div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                        <span
-                            class="px-2 py-1 bg-slate-100 text-[9px] font-black rounded border border-slate-200 text-slate-400">ESC</span>
+                <div class="flex-1 flex gap-2 items-center">
+                    <div class="relative flex-1 group">
+                        <i data-lucide="search"
+                            class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
+                        <input type="text" id="searchInput" placeholder="Search Materials..."
+                            class="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-bold uppercase focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all shadow-sm">
+                    </div>
+                    <!-- Markup Input -->
+                    <div class="relative w-28 no-print group">
+                        <input type="number" id="globalMarkupInput" placeholder="0" value="0"
+                            class="w-full pl-10 pr-6 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-black text-indigo-600 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all shadow-sm">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-indigo-400">%</span>
                     </div>
                 </div>
                 <button onclick="handlePrint()"
@@ -420,7 +424,13 @@
                 <table id="materialsTable" class="w-full text-left border-separate border-spacing-0">
                     <thead class="bg-slate-50/50 sticky top-0 z-10">
                         <tr class="header-row">
-                            <th id="selectHeader" class="hidden px-4 py-4 w-12 no-print border-b border-slate-200"></th>
+                            <th id="selectHeader" class="hidden px-4 py-4 w-12 no-print border-b border-slate-200">
+                                <div onclick="event.stopPropagation(); toggleSelectAll()" 
+                                     id="selectAllCheckbox"
+                                     class="w-4 h-4 border border-slate-300 rounded cursor-pointer flex items-center justify-center transition-all hover:border-blue-500">
+                                    <div id="selectAllIndicator" class="hidden w-2 h-2 bg-blue-600 rounded-[2px]"></div>
+                                </div>
+                            </th>
                             <th class="px-6 py-4 w-20 cursor-pointer border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest"
                                 onclick="handleSort('idNo')">
                                 <div class="flex items-center gap-2">ID <i data-lucide="chevrons-up-down"
@@ -434,10 +444,13 @@
                             <th
                                 class="md:table-cell px-6 py-4 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                 Brand / Supplier</th>
-                            <th class="px-6 py-4 text-right cursor-pointer border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest"
+                            <th class="px-4 py-4 text-right cursor-pointer border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest"
                                 onclick="handleSort('price')">
-                                <div class="flex items-center justify-end gap-2">Price <i data-lucide="chevrons-up-down"
-                                        class="w-3 h-3"></i></div>
+                                <div class="flex items-center justify-end gap-2">Price <i
+                                        data-lucide="chevrons-up-down" class="w-3 h-3"></i></div>
+                            </th>
+                            <th class="px-4 py-4 text-right border-b border-slate-200 text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+                                <div class="flex items-center justify-end gap-2">% Price</div>
                             </th>
                             <th
                                 class="admin-only-header hidden px-6 py-4 text-right no-print border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -943,6 +956,7 @@
         };
         const categories = ["ALL", "GENERAL", "STEEL", "ELECTRICAL", "PLUMBING", "PAINT", "CEMENT", "TOOLS", "OTHERS"];
         let activeCategory = "ALL";
+        let globalMarkup = 0;
 
         const createLog = async (action, itemName, itemId, idNo, price = null) => {
             try {
@@ -1360,7 +1374,10 @@
             let grandTotal = 0;
 
             container.innerHTML = activeEstimateItems.map(item => {
-                const total = item.price * item.qty;
+                const qty = item.qty;
+                const basePrice = parseFloat(item.price) || 0;
+                const markupPrice = basePrice * (1 + (globalMarkup / 100));
+                const total = markupPrice * qty;
                 grandTotal += total;
 
                 return `
@@ -1386,7 +1403,7 @@
                             <span class="print-only font-bold">${item.qty} ${item.unit}</span>
                         </td>
                         <td class="px-4 py-3 text-right font-bold text-slate-600 whitespace-nowrap">
-                            ₱${Number(item.price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            ₱${Number(markupPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
                         <td class="px-4 py-3 text-right font-black text-blue-700 whitespace-nowrap">
                             ₱${Number(total).toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -1698,13 +1715,7 @@
 
         const debouncedRender = debounce(() => render(), 250);
 
-        window.handleSort = (key) => {
-            sortConfig.direction = (sortConfig.key === key && sortConfig.direction === 'asc') ? 'desc' : 'asc';
-            sortConfig.key = key;
-            render();
-        };
-
-        const render = () => {
+        const getFilteredItems = () => {
             const rawTerm = document.getElementById('searchInput').value.toLowerCase();
             const term = rawTerm.trim();
 
@@ -1716,7 +1727,7 @@
                 }
             }
 
-            const filtered = items.filter(i => {
+            return items.filter(i => {
                 const idInt = parseInt(i.idNo);
                 const matchesCategory = activeCategory === "ALL" || (i.category || "GENERAL") === activeCategory;
                 if (!matchesCategory) return false;
@@ -1726,7 +1737,65 @@
                     (i.idNo || '').toString().includes(term) ||
                     (i.brand || '').toLowerCase().includes(term) ||
                     (i.supplier || '').toLowerCase().includes(term);
-            }).sort((a, b) => {
+            });
+        };
+
+        window.toggleSelectAll = () => {
+            const filteredItems = getFilteredItems();
+            if (filteredItems.length === 0) return;
+
+            const allVisibleSelected = filteredItems.every(i => selectedIds.has(i.id));
+
+            if (allVisibleSelected) {
+                // Deselect only visible ones
+                filteredItems.forEach(i => selectedIds.delete(i.id));
+            } else {
+                // Select all visible ones
+                filteredItems.forEach(i => selectedIds.add(i.id));
+            }
+
+            document.getElementById('selectedCount').textContent = selectedIds.size;
+            render();
+        };
+
+        const updateSelectAllState = (filteredItems) => {
+            if (!isSelectionMode) return;
+            const indicator = document.getElementById('selectAllIndicator');
+            const checkbox = document.getElementById('selectAllCheckbox');
+            
+            if (filteredItems.length === 0) {
+                indicator.classList.add('hidden');
+                checkbox.className = "w-4 h-4 border border-slate-300 rounded cursor-pointer flex items-center justify-center transition-all hover:border-blue-500";
+                return;
+            }
+
+            const selectedFiltered = filteredItems.filter(i => selectedIds.has(i.id));
+            const allSelected = selectedFiltered.length === filteredItems.length;
+            const someSelected = selectedFiltered.length > 0 && !allSelected;
+
+            if (allSelected) {
+                indicator.classList.remove('hidden');
+                indicator.className = "w-2 h-2 bg-white rounded-[2px]";
+                checkbox.className = "w-4 h-4 bg-blue-600 border border-blue-600 rounded cursor-pointer flex items-center justify-center transition-all";
+            } else if (someSelected) {
+                indicator.classList.remove('hidden');
+                indicator.className = "w-2 h-0.5 bg-blue-600 rounded-[2px]";
+                checkbox.className = "w-4 h-4 border border-blue-400 rounded cursor-pointer flex items-center justify-center transition-all";
+            } else {
+                indicator.classList.add('hidden');
+                checkbox.className = "w-4 h-4 border border-slate-300 rounded cursor-pointer flex items-center justify-center transition-all hover:border-blue-500";
+            }
+        };
+
+        window.handleSort = (key) => {
+            sortConfig.direction = (sortConfig.key === key && sortConfig.direction === 'asc') ? 'desc' : 'asc';
+            sortConfig.key = key;
+            render();
+        };
+
+        const render = () => {
+            const filteredItems = getFilteredItems();
+            const filtered = filteredItems.sort((a, b) => {
                 let v1 = a[sortConfig.key], v2 = b[sortConfig.key];
                 if (sortConfig.key === 'idNo' || sortConfig.key === 'price') { v1 = parseFloat(v1) || 0; v2 = parseFloat(v2) || 0; }
                 return sortConfig.direction === 'asc' ? (v1 > v2 ? 1 : -1) : (v1 < v2 ? 1 : -1);
@@ -1788,6 +1857,9 @@
                             <span class="text-[7px] text-slate-300 uppercase">/${i.unit}</span>
                         </div>
                     </td>
+                    <td class="px-4 py-4 text-right font-mono text-[11px] font-black text-indigo-600 bg-indigo-50/30">
+                        ₱${(Number(i.price) * (1 + globalMarkup/100)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
                     <td class="${isAdmin ? '' : 'hidden'} px-4 py-4 text-right no-print">
                         <div class="flex justify-end gap-2">
                             <button onclick="event.stopPropagation(); editItem('${i.id}')" class="text-slate-300 hover:text-blue-600"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
@@ -1797,6 +1869,7 @@
                 </tr>
             `}).join('');
             document.getElementById('tableContainer').classList.remove('hidden');
+            updateSelectAllState(filteredItems);
             lucide.createIcons({
                 attrs: { class: 'lucide' },
                 nameAttr: 'data-lucide',
@@ -1953,6 +2026,11 @@
         };
 
         document.getElementById('searchInput').oninput = debouncedRender;
+        document.getElementById('globalMarkupInput').oninput = (e) => {
+            globalMarkup = parseFloat(e.target.value) || 0;
+            render();
+            if (activeEstimateItems.length > 0) renderEstimate();
+        };
         window.handlePrint = () => window.print();
         window.handleLogout = () => location.reload();
         window.refreshData = refreshData;
